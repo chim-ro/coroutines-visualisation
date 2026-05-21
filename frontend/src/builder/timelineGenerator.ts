@@ -142,7 +142,12 @@ export function generateTimeline(root: BuilderNodeConfig, scenarioName: string):
   const failingNodes = bfsNodes.filter(n => n.config.failure);
 
   for (const info of failingNodes) {
-    const failureTime = info.config.failure!.timingMs;
+    // Skip if this node was already cancelled by a prior failure's cascade
+    if (cancelledNodes.has(info.config.id)) continue;
+
+    // Ensure failure happens after the node is activated (activation = depth*600 + siblingIndex*200)
+    const activationTime = info.depth * 600 + info.siblingIndex * 200;
+    const failureTime = Math.max(info.config.failure!.timingMs, activationTime + 200);
     const msg = info.config.failure!.exceptionMessage;
 
     // Mark the failing node as Cancelling
@@ -274,15 +279,42 @@ export function generateTimeline(root: BuilderNodeConfig, scenarioName: string):
   }
 
   // Phase 5: Terminal states
-  // Cancelled nodes: Cancelling → Cancelled (600ms after their Cancelling event)
+  // Cancelled nodes: Cancelling → Cancelled (bottom-up so parents wait for children)
   const cancellingEvents = events.filter(
     e => e.type === 'stateChange' && (e as StateChangeEvent).toState === 'Cancelling'
   ) as StateChangeEvent[];
 
+  // Build a map of nodeId → Cancelling delayMs
+  const cancellingTimeMap = new Map<string, number>();
+  for (const ce of cancellingEvents) {
+    cancellingTimeMap.set(ce.nodeId, ce.delayMs);
+  }
+
+  // Compute Cancelled time bottom-up: parent must wait for all cancelled children
+  const getCancelledTime = (nodeId: string): number => {
+    const ownCancellingTime = cancellingTimeMap.get(nodeId);
+    if (ownCancellingTime === undefined) return 0;
+
+    const node = nodeMap.get(nodeId);
+    if (!node) return ownCancellingTime + 600;
+
+    // Find max Cancelled time among cancelled children
+    let maxChildCancelledTime = 0;
+    for (const child of node.children) {
+      if (cancelledNodes.has(child.id)) {
+        maxChildCancelledTime = Math.max(maxChildCancelledTime, getCancelledTime(child.id));
+      }
+    }
+
+    // Parent's Cancelled time is at least 600ms after its own Cancelling,
+    // and at least 200ms after the last child's Cancelled time
+    return Math.max(ownCancellingTime + 600, maxChildCancelledTime + 200);
+  };
+
   for (const ce of cancellingEvents) {
     events.push({
       type: 'stateChange',
-      delayMs: ce.delayMs + 600,
+      delayMs: getCancelledTime(ce.nodeId),
       description: `${nodeMap.get(ce.nodeId)?.displayName ?? ce.nodeId} is Cancelled`,
       nodeId: ce.nodeId,
       fromState: 'Cancelling',
@@ -324,8 +356,8 @@ export function generateTimeline(root: BuilderNodeConfig, scenarioName: string):
   // Phase 6: Sort and de-duplicate simultaneous events
   events.sort((a, b) => a.delayMs - b.delayMs);
   for (let i = 1; i < events.length; i++) {
-    if (events[i].delayMs === events[i - 1].delayMs) {
-      events[i] = { ...events[i], delayMs: events[i].delayMs + 50 };
+    if (events[i].delayMs <= events[i - 1].delayMs) {
+      events[i] = { ...events[i], delayMs: events[i - 1].delayMs + 50 };
     }
   }
 

@@ -335,6 +335,6 @@ fun main() = runBlocking {
             )
         }
 
-        else -> buildTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 }

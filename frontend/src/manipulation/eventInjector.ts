@@ -7,6 +7,16 @@ import {
   LayoutNode,
 } from '../types';
 
+// Find a node by ID within a subtree
+function findNodeInTree(root: LayoutNode, nodeId: string): LayoutNode | null {
+  if (root.id === nodeId) return root;
+  for (const child of root.children) {
+    const found = findNodeInTree(child, nodeId);
+    if (found) return found;
+  }
+  return null;
+}
+
 // Collect all descendants of a layout node
 function collectDescendants(node: LayoutNode): LayoutNode[] {
   const result: LayoutNode[] = [];
@@ -40,59 +50,100 @@ export function generateCancelEvents(
   nodeStates: Map<string, JobState>,
 ): SimulationEvent[] {
   const events: SimulationEvent[] = [];
-  let delay = 200;
+  const cancellableStates: JobState[] = ['Active', 'Completing', 'Suspended', 'New'];
+  const cancellingTimeMap = new Map<string, number>(); // nodeId → Cancelling delayMs
 
   // Cancel target if it's in a cancellable state
   const targetState = nodeStates.get(targetNode.id);
-  const cancellableStates: JobState[] = ['Active', 'Completing', 'Suspended', 'New'];
+  let delay = 200;
+
   if (targetState && cancellableStates.includes(targetState)) {
-    events.push({
-      type: 'stateChange',
-      delayMs: delay,
-      description: `${targetNode.displayName} is being cancelled`,
-      nodeId: targetNode.id,
-      fromState: targetState,
-      toState: 'Cancelling',
-    } as StateChangeEvent);
-
-    events.push({
-      type: 'stateChange',
-      delayMs: delay + 600,
-      description: `${targetNode.displayName} is Cancelled`,
-      nodeId: targetNode.id,
-      fromState: 'Cancelling',
-      toState: 'Cancelled',
-    } as StateChangeEvent);
-  }
-
-  // Cancel all descendants regardless of state (structured concurrency)
-  const descendants = collectDescendants(targetNode);
-  for (const desc of descendants) {
-    const state = nodeStates.get(desc.id);
-    if (state && cancellableStates.includes(state)) {
-      delay += 300;
-      events.push({
-        type: 'cancellation',
-        delayMs: delay,
-        description: `Cancellation propagates to ${desc.displayName}`,
-        sourceNodeId: targetNode.id,
-        targetNodeId: desc.id,
-      } as CancellationEvent);
-
+    if (targetState === 'New') {
       events.push({
         type: 'stateChange',
-        delayMs: delay + 100,
-        description: `${desc.displayName} enters Cancelling`,
-        nodeId: desc.id,
-        fromState: state,
+        delayMs: delay,
+        description: `${targetNode.displayName} is Cancelled (never started)`,
+        nodeId: targetNode.id,
+        fromState: 'New',
+        toState: 'Cancelled',
+      } as StateChangeEvent);
+    } else {
+      events.push({
+        type: 'stateChange',
+        delayMs: delay,
+        description: `${targetNode.displayName} is being cancelled`,
+        nodeId: targetNode.id,
+        fromState: targetState,
         toState: 'Cancelling',
       } as StateChangeEvent);
+      cancellingTimeMap.set(targetNode.id, delay);
+    }
+  }
 
+  // Cancel descendants level-by-level using BFS for correct source attribution
+  const queue: LayoutNode[] = [targetNode];
+  while (queue.length > 0) {
+    const parent = queue.shift()!;
+    for (const child of parent.children) {
+      const state = nodeStates.get(child.id);
+      if (state && cancellableStates.includes(state)) {
+        delay += 300;
+        events.push({
+          type: 'cancellation',
+          delayMs: delay,
+          description: `Cancellation propagates to ${child.displayName}`,
+          sourceNodeId: parent.id,
+          targetNodeId: child.id,
+        } as CancellationEvent);
+
+        if (state === 'New') {
+          events.push({
+            type: 'stateChange',
+            delayMs: delay + 100,
+            description: `${child.displayName} is Cancelled (never started)`,
+            nodeId: child.id,
+            fromState: 'New',
+            toState: 'Cancelled',
+          } as StateChangeEvent);
+        } else {
+          events.push({
+            type: 'stateChange',
+            delayMs: delay + 100,
+            description: `${child.displayName} enters Cancelling`,
+            nodeId: child.id,
+            fromState: state,
+            toState: 'Cancelling',
+          } as StateChangeEvent);
+          cancellingTimeMap.set(child.id, delay + 100);
+        }
+      }
+      queue.push(child);
+    }
+  }
+
+  // Add Cancelled events bottom-up: parents wait for all children
+  const getCancelledTime = (node: LayoutNode): number => {
+    const ownTime = cancellingTimeMap.get(node.id);
+    if (ownTime === undefined) return 0;
+
+    let maxChildCancelledTime = 0;
+    for (const child of node.children) {
+      if (cancellingTimeMap.has(child.id)) {
+        maxChildCancelledTime = Math.max(maxChildCancelledTime, getCancelledTime(child));
+      }
+    }
+
+    return Math.max(ownTime + 600, maxChildCancelledTime + 200);
+  };
+
+  for (const [nodeId, _] of cancellingTimeMap) {
+    const node = findNodeInTree(targetNode, nodeId);
+    if (node) {
       events.push({
         type: 'stateChange',
-        delayMs: delay + 700,
-        description: `${desc.displayName} is Cancelled`,
-        nodeId: desc.id,
+        delayMs: getCancelledTime(node),
+        description: `${node.displayName} is Cancelled`,
+        nodeId: node.id,
         fromState: 'Cancelling',
         toState: 'Cancelled',
       } as StateChangeEvent);
@@ -115,11 +166,40 @@ export function generateExceptionEvents(
   const events: SimulationEvent[] = [];
   const nodeMap = buildNodeMap(layoutRoot);
   const cancelled = new Set<string>();
+  const cancellableStates: JobState[] = ['Active', 'Completing', 'Suspended', 'New'];
   let delay = 200;
 
   // Fail the target node
   const targetState = nodeStates.get(targetNode.id);
   if (targetState !== 'Active') return events;
+
+  // Helper to cancel a node in any cancellable state
+  const cancelNode = (node: LayoutNode, atDelay: number): void => {
+    if (cancelled.has(node.id)) return;
+    const state = nodeStates.get(node.id);
+    if (!state || !cancellableStates.includes(state)) return;
+
+    if (state === 'New') {
+      events.push({
+        type: 'stateChange',
+        delayMs: atDelay,
+        description: `${node.displayName} is Cancelled (never started)`,
+        nodeId: node.id,
+        fromState: 'New',
+        toState: 'Cancelled',
+      } as StateChangeEvent);
+    } else {
+      events.push({
+        type: 'stateChange',
+        delayMs: atDelay,
+        description: `${node.displayName} enters Cancelling`,
+        nodeId: node.id,
+        fromState: state,
+        toState: 'Cancelling',
+      } as StateChangeEvent);
+    }
+    cancelled.add(node.id);
+  };
 
   events.push({
     type: 'stateChange',
@@ -131,21 +211,15 @@ export function generateExceptionEvents(
   } as StateChangeEvent);
   cancelled.add(targetNode.id);
 
-  // Cancel target's active descendants
+  // Cancel target's descendants in all cancellable states
   const descendants = collectDescendants(targetNode);
   for (const desc of descendants) {
-    const state = nodeStates.get(desc.id);
-    if (state === 'Active' && !cancelled.has(desc.id)) {
-      delay += 200;
-      events.push({
-        type: 'stateChange',
-        delayMs: delay,
-        description: `${desc.displayName} enters Cancelling`,
-        nodeId: desc.id,
-        fromState: 'Active',
-        toState: 'Cancelling',
-      } as StateChangeEvent);
-      cancelled.add(desc.id);
+    if (!cancelled.has(desc.id)) {
+      const state = nodeStates.get(desc.id);
+      if (state && cancellableStates.includes(state)) {
+        delay += 200;
+        cancelNode(desc, delay);
+      }
     }
   }
 
@@ -172,23 +246,15 @@ export function generateExceptionEvents(
 
     // Regular job: cancel parent and siblings
     const parentState = nodeStates.get(parent.id);
-    if (parentState === 'Active' && !cancelled.has(parent.id)) {
+    if (parentState && cancellableStates.includes(parentState) && !cancelled.has(parent.id)) {
       delay += 300;
-      events.push({
-        type: 'stateChange',
-        delayMs: delay,
-        description: `${parent.displayName} enters Cancelling`,
-        nodeId: parent.id,
-        fromState: 'Active',
-        toState: 'Cancelling',
-      } as StateChangeEvent);
-      cancelled.add(parent.id);
+      cancelNode(parent, delay);
 
-      // Cancel siblings
+      // Cancel siblings in any cancellable state
       for (const sibling of parent.children) {
         if (sibling.id !== current.id && !cancelled.has(sibling.id)) {
           const sibState = nodeStates.get(sibling.id);
-          if (sibState === 'Active') {
+          if (sibState && cancellableStates.includes(sibState)) {
             delay += 200;
             events.push({
               type: 'cancellation',
@@ -197,30 +263,14 @@ export function generateExceptionEvents(
               sourceNodeId: parent.id,
               targetNodeId: sibling.id,
             } as CancellationEvent);
-            events.push({
-              type: 'stateChange',
-              delayMs: delay + 100,
-              description: `${sibling.displayName} enters Cancelling`,
-              nodeId: sibling.id,
-              fromState: 'Active',
-              toState: 'Cancelling',
-            } as StateChangeEvent);
-            cancelled.add(sibling.id);
+            cancelNode(sibling, delay + 100);
 
-            // Cancel sibling descendants
+            // Cancel sibling descendants in any cancellable state
             for (const desc of collectDescendants(sibling)) {
               const descState = nodeStates.get(desc.id);
-              if (descState === 'Active' && !cancelled.has(desc.id)) {
+              if (descState && cancellableStates.includes(descState) && !cancelled.has(desc.id)) {
                 delay += 200;
-                events.push({
-                  type: 'stateChange',
-                  delayMs: delay,
-                  description: `${desc.displayName} enters Cancelling`,
-                  nodeId: desc.id,
-                  fromState: 'Active',
-                  toState: 'Cancelling',
-                } as StateChangeEvent);
-                cancelled.add(desc.id);
+                cancelNode(desc, delay);
               }
             }
           }
@@ -231,16 +281,38 @@ export function generateExceptionEvents(
     current = parent;
   }
 
-  // Add terminal Cancelled events for all cancelling nodes
-  const allCancellingEvents = events.filter(
+  // Add terminal Cancelled events bottom-up: parents wait for all children
+  const cancellingEvents = events.filter(
     e => e.type === 'stateChange' && (e as StateChangeEvent).toState === 'Cancelling'
   ) as StateChangeEvent[];
 
-  for (const ce of allCancellingEvents) {
+  const cancellingTimeMap = new Map<string, number>();
+  for (const ce of cancellingEvents) {
+    cancellingTimeMap.set(ce.nodeId, ce.delayMs);
+  }
+
+  const getCancelledTime = (nodeId: string): number => {
+    const ownTime = cancellingTimeMap.get(nodeId);
+    if (ownTime === undefined) return 0;
+
+    const node = nodeMap.get(nodeId);
+    if (!node) return ownTime + 600;
+
+    let maxChildCancelledTime = 0;
+    for (const child of node.children) {
+      if (cancellingTimeMap.has(child.id)) {
+        maxChildCancelledTime = Math.max(maxChildCancelledTime, getCancelledTime(child.id));
+      }
+    }
+
+    return Math.max(ownTime + 600, maxChildCancelledTime + 200);
+  };
+
+  for (const ce of cancellingEvents) {
     events.push({
       type: 'stateChange',
-      delayMs: ce.delayMs + 600,
-      description: `${ce.nodeId} is Cancelled`,
+      delayMs: getCancelledTime(ce.nodeId),
+      description: `${nodeMap.get(ce.nodeId)?.displayName ?? ce.nodeId} is Cancelled`,
       nodeId: ce.nodeId,
       fromState: 'Cancelling',
       toState: 'Cancelled',
@@ -252,6 +324,7 @@ export function generateExceptionEvents(
 
 /**
  * Generate events to force-complete a node.
+ * Structured concurrency: children must complete before parent.
  */
 export function generateForceCompleteEvents(
   targetNode: LayoutNode,
@@ -261,9 +334,46 @@ export function generateForceCompleteEvents(
   const targetState = nodeStates.get(targetNode.id);
   if (targetState !== 'Active') return events;
 
+  // Collect completable descendants deepest-first (structured concurrency: children complete before parent)
+  const descendants = collectDescendants(targetNode);
+  const completableStates: JobState[] = ['Active', 'Suspended'];
+  const completableDescendants = descendants
+    .filter(d => {
+      const s = nodeStates.get(d.id);
+      return s !== undefined && completableStates.includes(s);
+    })
+    .reverse(); // deepest first (collectDescendants returns pre-order DFS)
+
+  let delay = 200;
+
+  // Complete children bottom-up first
+  for (const desc of completableDescendants) {
+    const descState = nodeStates.get(desc.id) ?? 'Active';
+    events.push({
+      type: 'stateChange',
+      delayMs: delay,
+      description: `${desc.displayName} is Completing`,
+      nodeId: desc.id,
+      fromState: descState,
+      toState: 'Completing',
+    } as StateChangeEvent);
+
+    events.push({
+      type: 'stateChange',
+      delayMs: delay + 400,
+      description: `${desc.displayName} is Completed`,
+      nodeId: desc.id,
+      fromState: 'Completing',
+      toState: 'Completed',
+    } as StateChangeEvent);
+
+    delay += 500;
+  }
+
+  // Then complete the target node itself
   events.push({
     type: 'stateChange',
-    delayMs: 200,
+    delayMs: delay,
     description: `${targetNode.displayName} is force-completing`,
     nodeId: targetNode.id,
     fromState: 'Active',
@@ -272,7 +382,7 @@ export function generateForceCompleteEvents(
 
   events.push({
     type: 'stateChange',
-    delayMs: 700,
+    delayMs: delay + 500,
     description: `${targetNode.displayName} is Completed`,
     nodeId: targetNode.id,
     fromState: 'Completing',

@@ -134,8 +134,11 @@ const App: React.FC = () => {
 
   const handleInjectException = useCallback((nodeId: string, message: string) => {
     const node = findNode(animState.layoutRoot, nodeId) ?? findNode(animState.secondLayoutRoot, nodeId);
-    if (!node || !animState.layoutRoot) return;
-    const events = generateExceptionEvents(node, animState.nodeStates, message, animState.layoutRoot);
+    if (!node) return;
+    // Use the tree that contains the target node as the layout root
+    const root = findNode(animState.layoutRoot, nodeId) ? animState.layoutRoot : animState.secondLayoutRoot;
+    if (!root) return;
+    const events = generateExceptionEvents(node, animState.nodeStates, message, root);
     controls.injectEvents(events);
   }, [animState.layoutRoot, animState.secondLayoutRoot, animState.nodeStates, controls]);
 

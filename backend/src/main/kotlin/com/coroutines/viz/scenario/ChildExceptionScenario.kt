@@ -95,7 +95,7 @@ suspend fun main() = coroutineScope {
         "intermediate" -> buildTimeline()
         "beginner" -> buildBeginnerTimeline()
         "advanced" -> buildAdvancedTimeline()
-        else -> buildTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {

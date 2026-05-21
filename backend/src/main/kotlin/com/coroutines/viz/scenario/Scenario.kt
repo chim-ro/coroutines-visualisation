@@ -16,6 +16,6 @@ interface Scenario {
     fun buildTimeline(): EventTimeline
     fun buildTimeline(level: String): EventTimeline = when (level) {
         "beginner", "intermediate", "advanced" -> buildTimeline()
-        else -> buildTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 }

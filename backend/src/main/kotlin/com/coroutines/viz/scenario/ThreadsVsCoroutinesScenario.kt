@@ -17,7 +17,7 @@ class ThreadsVsCoroutinesScenario : Scenario {
         "beginner" -> buildBeginnerTimeline()
         "intermediate" -> buildIntermediateTimeline()
         "advanced" -> buildAdvancedTimeline()
-        else -> buildIntermediateTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 
     // ── Beginner: 2 tasks ──────────────────────────────────────────
@@ -90,13 +90,19 @@ class ThreadsVsCoroutinesScenario : Scenario {
 
             StateChangeEvent(800, "CR: #1 resumes on main thread", "cr-task1", JobState.Suspended, JobState.Active),
             StateChangeEvent(850, "CR: #2 resumes on main thread", "cr-task2", JobState.Suspended, JobState.Active),
-            StateChangeEvent(900, "CR: #1 completed", "cr-task1", JobState.Active, JobState.Completed),
-            StateChangeEvent(950, "CR: #2 completed", "cr-task2", JobState.Active, JobState.Completed),
-            StateChangeEvent(1000, "CR: runBlocking completed", "cr-root", JobState.Active, JobState.Completed),
+            StateChangeEvent(900, "CR: #1 completing", "cr-task1", JobState.Active, JobState.Completing),
+            StateChangeEvent(920, "CR: #1 completed", "cr-task1", JobState.Completing, JobState.Completed),
+            StateChangeEvent(940, "CR: #2 completing", "cr-task2", JobState.Active, JobState.Completing),
+            StateChangeEvent(960, "CR: #2 completed", "cr-task2", JobState.Completing, JobState.Completed),
+            StateChangeEvent(980, "CR: runBlocking completing", "cr-root", JobState.Active, JobState.Completing),
+            StateChangeEvent(1000, "CR: runBlocking completed", "cr-root", JobState.Completing, JobState.Completed),
 
-            StateChangeEvent(1050, "Threads: task 1 done", "sync-task1", JobState.Active, JobState.Completed),
-            StateChangeEvent(1050, "Threads: task 2 done", "sync-task2", JobState.Active, JobState.Completed),
-            StateChangeEvent(1100, "Threads: main completed", "sync-root", JobState.Active, JobState.Completed),
+            StateChangeEvent(1050, "Threads: task 1 completing", "sync-task1", JobState.Active, JobState.Completing),
+            StateChangeEvent(1060, "Threads: task 1 done", "sync-task1", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1070, "Threads: task 2 completing", "sync-task2", JobState.Active, JobState.Completing),
+            StateChangeEvent(1080, "Threads: task 2 done", "sync-task2", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1100, "Threads: main completing", "sync-root", JobState.Active, JobState.Completing),
+            StateChangeEvent(1120, "Threads: main completed", "sync-root", JobState.Completing, JobState.Completed),
 
             NarrativeEvent(1200, "Same speed (~1000ms) but coroutines used 1 thread vs 3!")
         )
@@ -204,15 +210,23 @@ fun main() = runBlocking {
             StateChangeEvent(900, "CR: #1 resumes on main thread", "cr-task1", JobState.Suspended, JobState.Active),
             StateChangeEvent(950, "CR: #2 resumes", "cr-task2", JobState.Suspended, JobState.Active),
             StateChangeEvent(1000, "CR: #3 resumes", "cr-task3", JobState.Suspended, JobState.Active),
-            StateChangeEvent(1050, "CR: #1 completed", "cr-task1", JobState.Active, JobState.Completed),
-            StateChangeEvent(1080, "CR: #2 completed", "cr-task2", JobState.Active, JobState.Completed),
-            StateChangeEvent(1110, "CR: #3 completed", "cr-task3", JobState.Active, JobState.Completed),
-            StateChangeEvent(1150, "CR: runBlocking completed", "cr-root", JobState.Active, JobState.Completed),
+            StateChangeEvent(1050, "CR: #1 completing", "cr-task1", JobState.Active, JobState.Completing),
+            StateChangeEvent(1060, "CR: #1 completed", "cr-task1", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1070, "CR: #2 completing", "cr-task2", JobState.Active, JobState.Completing),
+            StateChangeEvent(1080, "CR: #2 completed", "cr-task2", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1090, "CR: #3 completing", "cr-task3", JobState.Active, JobState.Completing),
+            StateChangeEvent(1100, "CR: #3 completed", "cr-task3", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1110, "CR: runBlocking completing", "cr-root", JobState.Active, JobState.Completing),
+            StateChangeEvent(1120, "CR: runBlocking completed", "cr-root", JobState.Completing, JobState.Completed),
 
-            StateChangeEvent(1100, "Threads: all tasks done", "sync-task1", JobState.Active, JobState.Completed),
-            StateChangeEvent(1100, "Threads: task 2 done", "sync-task2", JobState.Active, JobState.Completed),
-            StateChangeEvent(1100, "Threads: task 3 done", "sync-task3", JobState.Active, JobState.Completed),
-            StateChangeEvent(1150, "Threads: main completed", "sync-root", JobState.Active, JobState.Completed),
+            StateChangeEvent(1130, "Threads: task 1 completing", "sync-task1", JobState.Active, JobState.Completing),
+            StateChangeEvent(1140, "Threads: task 1 done", "sync-task1", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1150, "Threads: task 2 completing", "sync-task2", JobState.Active, JobState.Completing),
+            StateChangeEvent(1160, "Threads: task 2 done", "sync-task2", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1170, "Threads: task 3 completing", "sync-task3", JobState.Active, JobState.Completing),
+            StateChangeEvent(1180, "Threads: task 3 done", "sync-task3", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1200, "Threads: main completing", "sync-root", JobState.Active, JobState.Completing),
+            StateChangeEvent(1220, "Threads: main completed", "sync-root", JobState.Completing, JobState.Completed),
 
             NarrativeEvent(1300, "Same speed (~1000ms) but coroutines used 1 thread vs 4!")
         )
@@ -268,7 +282,7 @@ fun main() = runBlocking {
                 CoroutineNode(
                     id = "cr-task1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New,
                     children = listOf(
-                        CoroutineNode(id = "cr-task1-io", displayName = "withContext(IO)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
+                        CoroutineNode(id = "cr-task1-io", displayName = "withContext(IO)", builder = BuilderType.CoroutineScope, jobType = JobType.Job, initialState = JobState.New)
                     )
                 ),
                 CoroutineNode(id = "cr-task2", displayName = "launch #2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
@@ -342,23 +356,34 @@ fun main() = runBlocking {
 
             NarrativeEvent(750, "Threads: 4 workers blocked | Coroutines: main free, only IO thread busy for task 1"),
 
-            StateChangeEvent(900, "CR: withContext(IO) completed", "cr-task1-io", JobState.Active, JobState.Completed),
+            StateChangeEvent(900, "CR: withContext(IO) completing", "cr-task1-io", JobState.Active, JobState.Completing),
+            StateChangeEvent(910, "CR: withContext(IO) completed", "cr-task1-io", JobState.Completing, JobState.Completed),
             StateChangeEvent(920, "CR: #1 resumes on main", "cr-task1", JobState.Suspended, JobState.Active),
             StateChangeEvent(950, "CR: #2 resumes", "cr-task2", JobState.Suspended, JobState.Active),
             StateChangeEvent(1000, "CR: #3 resumes", "cr-task3", JobState.Suspended, JobState.Active),
             StateChangeEvent(1050, "CR: #4 resumes", "cr-task4", JobState.Suspended, JobState.Active),
 
-            StateChangeEvent(1100, "CR: #1 completed", "cr-task1", JobState.Active, JobState.Completed),
-            StateChangeEvent(1120, "CR: #2 completed", "cr-task2", JobState.Active, JobState.Completed),
-            StateChangeEvent(1140, "CR: #3 completed", "cr-task3", JobState.Active, JobState.Completed),
-            StateChangeEvent(1160, "CR: #4 completed", "cr-task4", JobState.Active, JobState.Completed),
-            StateChangeEvent(1200, "CR: runBlocking completed", "cr-root", JobState.Active, JobState.Completed),
+            StateChangeEvent(1100, "CR: #1 completing", "cr-task1", JobState.Active, JobState.Completing),
+            StateChangeEvent(1110, "CR: #1 completed", "cr-task1", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1120, "CR: #2 completing", "cr-task2", JobState.Active, JobState.Completing),
+            StateChangeEvent(1130, "CR: #2 completed", "cr-task2", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1140, "CR: #3 completing", "cr-task3", JobState.Active, JobState.Completing),
+            StateChangeEvent(1150, "CR: #3 completed", "cr-task3", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1160, "CR: #4 completing", "cr-task4", JobState.Active, JobState.Completing),
+            StateChangeEvent(1170, "CR: #4 completed", "cr-task4", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1180, "CR: runBlocking completing", "cr-root", JobState.Active, JobState.Completing),
+            StateChangeEvent(1200, "CR: runBlocking completed", "cr-root", JobState.Completing, JobState.Completed),
 
-            StateChangeEvent(1100, "Threads: all tasks done", "sync-task1", JobState.Active, JobState.Completed),
-            StateChangeEvent(1100, "Threads: task 2 done", "sync-task2", JobState.Active, JobState.Completed),
-            StateChangeEvent(1100, "Threads: task 3 done", "sync-task3", JobState.Active, JobState.Completed),
-            StateChangeEvent(1100, "Threads: task 4 done", "sync-task4", JobState.Active, JobState.Completed),
-            StateChangeEvent(1150, "Threads: main completed", "sync-root", JobState.Active, JobState.Completed),
+            StateChangeEvent(1210, "Threads: task 1 completing", "sync-task1", JobState.Active, JobState.Completing),
+            StateChangeEvent(1220, "Threads: task 1 done", "sync-task1", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1230, "Threads: task 2 completing", "sync-task2", JobState.Active, JobState.Completing),
+            StateChangeEvent(1240, "Threads: task 2 done", "sync-task2", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1250, "Threads: task 3 completing", "sync-task3", JobState.Active, JobState.Completing),
+            StateChangeEvent(1260, "Threads: task 3 done", "sync-task3", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1270, "Threads: task 4 completing", "sync-task4", JobState.Active, JobState.Completing),
+            StateChangeEvent(1280, "Threads: task 4 done", "sync-task4", JobState.Completing, JobState.Completed),
+            StateChangeEvent(1300, "Threads: main completing", "sync-root", JobState.Active, JobState.Completing),
+            StateChangeEvent(1320, "Threads: main completed", "sync-root", JobState.Completing, JobState.Completed),
 
             NarrativeEvent(1400, "Same speed — coroutines used 2 threads vs 5, and only borrowed IO thread briefly!")
         )

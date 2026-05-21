@@ -225,8 +225,8 @@ fun main() = runBlocking {
 
                 // Phase 4: Logger runs, cache runs
                 NarrativeEvent(3200, "Thread bounces to logger, then cache — cooperative scheduling in action."),
-                StateChangeEvent(3400, "Logger writes first batch of logs", "logger", JobState.Active, JobState.Active),
-                StateChangeEvent(3800, "Cache computes and stores result", "cache", JobState.Active, JobState.Active),
+                NarrativeEvent(3400, "Logger writes first batch of logs"),
+                NarrativeEvent(3800, "Cache computes and stores result"),
 
                 // Phase 5: Fetcher resumes and suspends again (second network call)
                 NarrativeEvent(4200, "Fetcher's first delay() expires — it resumes for its second network call."),
@@ -306,6 +306,6 @@ fun main() = runBlocking {
             )
         }
 
-        else -> buildTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 }

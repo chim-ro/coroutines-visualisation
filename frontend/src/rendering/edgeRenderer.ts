@@ -27,7 +27,7 @@ function drawEdge(ctx: CanvasRenderingContext2D, parent: LayoutNode, child: Layo
   ctx.stroke();
 
   // Arrowhead
-  const angle = Math.atan2(endY - midY, child.x - child.x) || Math.PI / 2;
+  const angle = Math.atan2(endY - midY, child.x - parent.x) || Math.PI / 2;
   ctx.save();
   ctx.translate(child.x, endY);
   ctx.rotate(angle);

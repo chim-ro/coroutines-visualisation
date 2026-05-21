@@ -16,6 +16,10 @@ fun Application.scenarioRoutes() {
             get("/{id}") {
                 val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
                 val level = call.request.queryParameters["level"] ?: "beginner"
+                val validLevels = setOf("beginner", "intermediate", "advanced")
+                if (level !in validLevels) {
+                    return@get call.respond(HttpStatusCode.BadRequest, "Invalid level '$level'. Must be one of: $validLevels")
+                }
                 val scenario = ScenarioRegistry.getById(id)
                     ?: return@get call.respond(HttpStatusCode.NotFound, "Scenario '$id' not found")
                 call.respond(scenario.buildTimeline(level))

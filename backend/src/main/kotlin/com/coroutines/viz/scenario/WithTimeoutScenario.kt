@@ -15,7 +15,7 @@ class WithTimeoutScenario : Scenario {
         "intermediate" -> buildTimeline()
         "beginner" -> buildBeginnerTimeline()
         "advanced" -> buildAdvancedTimeline()
-        else -> buildTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
@@ -79,12 +79,11 @@ class WithTimeoutScenario : Scenario {
                 delayMs = 1100,
                 description = "Timeout fires! 500ms have elapsed. The slow child is still running — TimeoutCancellationException is thrown."
             ),
-            ExceptionEvent(
+            CancellationEvent(
                 delayMs = 1300,
-                description = "TimeoutCancellationException propagates from withTimeout scope to the slow child",
+                description = "withTimeout cancels slow child — TimeoutCancellationException",
                 sourceNodeId = "timeout-scope",
-                targetNodeId = "slow-work",
-                exceptionMessage = "TimeoutCancellationException: Timed out waiting for 500 ms"
+                targetNodeId = "slow-work"
             ),
             StateChangeEvent(
                 delayMs = 1500,
@@ -278,12 +277,11 @@ class WithTimeoutScenario : Scenario {
                 delayMs = 1100,
                 description = "The nested withTimeout(200) fires first! The very slow child has exceeded its 200ms budget."
             ),
-            ExceptionEvent(
+            CancellationEvent(
                 delayMs = 1250,
-                description = "Nested TimeoutCancellationException cancels the very slow child",
+                description = "Nested withTimeout cancels the very slow child — TimeoutCancellationException",
                 sourceNodeId = "nested-timeout",
-                targetNodeId = "very-slow-work",
-                exceptionMessage = "TimeoutCancellationException: Timed out waiting for 200 ms"
+                targetNodeId = "very-slow-work"
             ),
             StateChangeEvent(
                 delayMs = 1400,
@@ -349,12 +347,11 @@ class WithTimeoutScenario : Scenario {
                 delayMs = 2800,
                 description = "Outer timeout fires! 1000ms have elapsed. The slow launch is still running — it gets cancelled by the outer withTimeout."
             ),
-            ExceptionEvent(
+            CancellationEvent(
                 delayMs = 2950,
-                description = "Outer TimeoutCancellationException cancels the slow launch",
+                description = "Outer withTimeout cancels the slow launch — TimeoutCancellationException",
                 sourceNodeId = "timeout-scope",
-                targetNodeId = "slow-work",
-                exceptionMessage = "TimeoutCancellationException: Timed out waiting for 1000 ms"
+                targetNodeId = "slow-work"
             ),
             StateChangeEvent(
                 delayMs = 3100,
@@ -545,14 +542,13 @@ class WithTimeoutScenario : Scenario {
             ),
             NarrativeEvent(
                 delayMs = 1600,
-                description = "⏰ Timeout fires! 1000ms have elapsed. The slow launch is still running — TimeoutCancellationException is thrown."
+                description = "Timeout fires! 1000ms have elapsed. The slow launch is still running — TimeoutCancellationException is thrown."
             ),
-            ExceptionEvent(
+            CancellationEvent(
                 delayMs = 1800,
-                description = "TimeoutCancellationException propagates from withTimeout scope to slow launch",
+                description = "withTimeout cancels slow launch — TimeoutCancellationException",
                 sourceNodeId = "timeout-scope",
-                targetNodeId = "slow-work",
-                exceptionMessage = "TimeoutCancellationException: Timed out waiting for 1000 ms"
+                targetNodeId = "slow-work"
             ),
             StateChangeEvent(
                 delayMs = 2000,

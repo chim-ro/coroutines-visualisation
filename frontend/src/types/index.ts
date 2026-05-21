@@ -85,15 +85,6 @@ export interface FailureConfig {
   timingMs: number;
 }
 
-export interface BuilderNodeConfig {
-  id: string;
-  displayName: string;
-  builder: BuilderType;
-  jobType: JobType;
-  children: BuilderNodeConfig[];
-  failure?: FailureConfig;
-}
-
 // Layout types for canvas rendering
 export interface LayoutNode {
   id: string;

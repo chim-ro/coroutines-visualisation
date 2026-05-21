@@ -64,7 +64,7 @@ export const NodeContextMenu: React.FC<Props> = ({
   }, [onClose]);
 
   const isActive = nodeState === 'Active';
-  const isCancellable = nodeState === 'Active' || nodeState === 'Completing';
+  const isCancellable = nodeState === 'Active' || nodeState === 'Completing' || nodeState === 'Suspended';
 
   // Clamp menu position to viewport
   const menuWidth = 220;

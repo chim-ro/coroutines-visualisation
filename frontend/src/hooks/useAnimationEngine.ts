@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { EventTimeline, SimulationEvent, StateChangeEvent, LayoutNode, JobState } from '../types';
+import { EventTimeline, SimulationEvent, StateChangeEvent, CancellationEvent, ExceptionEvent, LayoutNode, JobState } from '../types';
 import { NodeAnimation } from '../rendering/nodeRenderer';
 import { WaveAnimation } from '../rendering/waveRenderer';
 import { layoutTree, flattenTree } from '../rendering/treeLayout';
@@ -175,17 +175,21 @@ export function useAnimationEngine(): [AnimationState, AnimationControls] {
     };
   }, [isPlaying, currentEventIndex, timeline, speed, applyEvent]);
 
-  // Update layout nodes with current states
+  // Update layout nodes with current states (immutable clone)
   useEffect(() => {
     if (!layoutRoot) return;
-    const updateStates = (node: LayoutNode) => {
-      const state = nodeStates.get(node.id);
-      if (state) node.state = state;
-      node.children.forEach(updateStates);
+    const cloneWithStates = (node: LayoutNode, parent: LayoutNode | null): LayoutNode => {
+      const state = nodeStates.get(node.id) ?? node.state;
+      const cloned: LayoutNode = { ...node, state, parent, children: [] };
+      cloned.children = node.children.map(c => cloneWithStates(c, cloned));
+      return cloned;
     };
-    updateStates(layoutRoot);
-    if (secondLayoutRoot) updateStates(secondLayoutRoot);
-  }, [nodeStates, layoutRoot, secondLayoutRoot]);
+    setLayoutRoot(cloneWithStates(layoutRoot, null));
+    if (secondLayoutRoot) {
+      setSecondLayoutRoot(cloneWithStates(secondLayoutRoot, null));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeStates]);
 
   const timelineRef = useRef<EventTimeline | null>(null);
   const nodeStatesRef = useRef<Map<string, JobState>>(new Map());
@@ -273,6 +277,12 @@ export function useAnimationEngine(): [AnimationState, AnimationControls] {
       const filtered = after.filter(e => {
         if (e.type === 'stateChange') {
           return !affectedNodeIds.has((e as StateChangeEvent).nodeId);
+        }
+        if (e.type === 'cancellation') {
+          return !affectedNodeIds.has((e as CancellationEvent).targetNodeId);
+        }
+        if (e.type === 'exception') {
+          return !affectedNodeIds.has((e as ExceptionEvent).sourceNodeId);
         }
         return true;
       });

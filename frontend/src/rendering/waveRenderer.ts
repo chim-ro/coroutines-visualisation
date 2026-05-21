@@ -31,8 +31,10 @@ export function drawWaves(
     const color = wave.type === 'cancellation' ? CANCELLATION_WAVE_COLOR : EXCEPTION_WAVE_COLOR;
 
     // Interpolate position along edge
-    const startY = fromNode.y + NODE_RADIUS;
-    const endY = toNode.y - NODE_RADIUS;
+    // Exception waves travel upward (child→parent), cancellation waves downward (parent→child)
+    const goingDown = fromNode.y < toNode.y;
+    const startY = goingDown ? fromNode.y + NODE_RADIUS : fromNode.y - NODE_RADIUS;
+    const endY = goingDown ? toNode.y - NODE_RADIUS : toNode.y + NODE_RADIUS;
     const midY = (startY + endY) / 2;
 
     // Approximate bezier at parameter t

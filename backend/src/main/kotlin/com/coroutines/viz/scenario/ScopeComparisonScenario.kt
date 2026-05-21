@@ -111,7 +111,7 @@ supervisorScope {
         "beginner" -> buildBeginnerTimeline()
         "intermediate" -> buildTimeline()
         "advanced" -> buildAdvancedTimeline()
-        else -> buildTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {

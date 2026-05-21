@@ -64,7 +64,7 @@ export const ControlPanel: React.FC<Props> = ({
       </div>
 
       <div style={{ marginLeft: 'auto', color: TEXT_DIM, fontSize: 12 }}>
-        {currentEvent + 1 < 0 ? 0 : currentEvent + 1}/{totalEvents}
+        {currentEvent < 0 ? 0 : currentEvent + 1}/{totalEvents}
       </div>
     </div>
   );
