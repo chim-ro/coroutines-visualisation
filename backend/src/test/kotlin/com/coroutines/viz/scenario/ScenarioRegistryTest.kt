@@ -6,9 +6,9 @@ import kotlin.test.*
 class ScenarioRegistryTest {
 
     @Test
-    fun `registry contains all 22 scenarios`() {
+    fun `registry contains all 19 scenarios`() {
         val scenarios = ScenarioRegistry.listAll()
-        assertEquals(22, scenarios.size, "Should have 22 registered scenarios")
+        assertEquals(19, scenarios.size, "Should have 19 registered scenarios")
     }
 
     @Test

@@ -6,14 +6,12 @@ object ScenarioRegistry {
         SuspensionResumptionScenario(),
         DownwardCancellationScenario(),
         ChildExceptionScenario(),
-        SupervisorJobScenario(),
         ScopeComparisonScenario(),
         NestedScopesScenario(),
         WithTimeoutScenario(),
         CoroutineContextScenario(),
         DispatchersScenario(),
         ThreadsVsCoroutinesScenario(),
-        AsyncAwaitExceptionScenario(),
         NonCancellableContextScenario(),
         CooperativeCancellationScenario(),
         InvokeOnCompletionScenario(),
@@ -22,8 +20,7 @@ object ScenarioRegistry {
         AsyncPropagationContrastScenario(),
         CancelledScopeTrapScenario(),
         ExternalScopeScenario(),
-        CoroutineExceptionHandlerScenario(),
-        WithTimeoutOrNullScenario()
+        CoroutineExceptionHandlerScenario()
     ).associateBy { it.info.id }
 
     fun listAll(): List<ScenarioInfo> = scenarios.values.map { it.info }

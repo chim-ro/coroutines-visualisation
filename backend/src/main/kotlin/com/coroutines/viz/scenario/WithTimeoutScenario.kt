@@ -6,8 +6,8 @@ import com.coroutines.viz.model.*
 class WithTimeoutScenario : Scenario {
     override val info = ScenarioInfo(
         id = "with-timeout",
-        name = "withTimeout Cancellation",
-        description = "Demonstrates how withTimeout cancels coroutines that exceed the time limit, throwing TimeoutCancellationException.",
+        name = "withTimeout / withTimeoutOrNull",
+        description = "withTimeout cancels coroutines that exceed the time limit and re-throws TimeoutCancellationException to the caller. The advanced level contrasts it side-by-side with withTimeoutOrNull, which returns null instead of throwing.",
         category = "Cancellation"
     )
 
@@ -171,59 +171,57 @@ class WithTimeoutScenario : Scenario {
         )
     }
 
+    // Advanced: side-by-side — withTimeout (throws) vs withTimeoutOrNull (returns null).
+    // (Folded in from the former WithTimeoutOrNullScenario.)
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
+        // LEFT — withTimeout: caller needs try/catch
+        val withScope = CoroutineNode(
+            id = "wt-scope",
+            displayName = "coroutineScope (LEFT)",
             builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
                 CoroutineNode(
-                    id = "timeout-scope",
-                    displayName = "withTimeout(1000)",
+                    id = "wt-block",
+                    displayName = "withTimeout(500)",
                     builder = BuilderType.CoroutineScope,
                     jobType = JobType.Job,
                     initialState = JobState.New,
                     children = listOf(
                         CoroutineNode(
-                            id = "fast-work",
-                            displayName = "launch (fast)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        ),
-                        CoroutineNode(
-                            id = "medium-work",
-                            displayName = "async (medium)",
-                            builder = BuilderType.Async,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        ),
-                        CoroutineNode(
-                            id = "slow-work",
+                            id = "wt-work",
                             displayName = "launch (slow)",
                             builder = BuilderType.Launch,
                             jobType = JobType.Job,
-                            initialState = JobState.New,
-                            children = listOf(
-                                CoroutineNode(
-                                    id = "nested-timeout",
-                                    displayName = "withTimeout(200)",
-                                    builder = BuilderType.CoroutineScope,
-                                    jobType = JobType.Job,
-                                    initialState = JobState.New,
-                                    children = listOf(
-                                        CoroutineNode(
-                                            id = "very-slow-work",
-                                            displayName = "launch (very slow)",
-                                            builder = BuilderType.Launch,
-                                            jobType = JobType.Job,
-                                            initialState = JobState.New
-                                        )
-                                    )
-                                )
-                            )
+                            initialState = JobState.New
+                        )
+                    )
+                )
+            )
+        )
+
+        // RIGHT — withTimeoutOrNull: caller just checks for null
+        val orNullScope = CoroutineNode(
+            id = "or-scope",
+            displayName = "coroutineScope (RIGHT)",
+            builder = BuilderType.CoroutineScope,
+            jobType = JobType.Job,
+            initialState = JobState.New,
+            children = listOf(
+                CoroutineNode(
+                    id = "or-block",
+                    displayName = "withTimeoutOrNull(500)",
+                    builder = BuilderType.CoroutineScope,
+                    jobType = JobType.Job,
+                    initialState = JobState.New,
+                    children = listOf(
+                        CoroutineNode(
+                            id = "or-work",
+                            displayName = "launch (slow)",
+                            builder = BuilderType.Launch,
+                            jobType = JobType.Job,
+                            initialState = JobState.New
                         )
                     )
                 )
@@ -231,238 +229,66 @@ class WithTimeoutScenario : Scenario {
         )
 
         val events = listOf(
-            NarrativeEvent(
-                delayMs = 0,
-                description = "Outer withTimeout sets a 1000ms deadline. Inside, three children run concurrently. The slow child has its own nested withTimeout(200)."
-            ),
-            StateChangeEvent(
-                delayMs = 100,
-                description = "coroutineScope starts execution",
-                nodeId = "root",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            StateChangeEvent(
-                delayMs = 250,
-                description = "Outer withTimeout(1000) scope becomes active — the 1000ms clock starts",
-                nodeId = "timeout-scope",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            StateChangeEvent(
-                delayMs = 400,
-                description = "Fast launch starts — needs only 300ms",
-                nodeId = "fast-work",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            StateChangeEvent(
-                delayMs = 500,
-                description = "Medium async starts — needs 900ms (just barely fits in the 1000ms timeout)",
-                nodeId = "medium-work",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            StateChangeEvent(
-                delayMs = 600,
-                description = "Slow launch starts — needs 1500ms (will exceed the outer timeout)",
-                nodeId = "slow-work",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            StateChangeEvent(
-                delayMs = 750,
-                description = "Nested withTimeout(200) scope starts inside the slow launch — its own 200ms clock begins",
-                nodeId = "nested-timeout",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            StateChangeEvent(
-                delayMs = 900,
-                description = "Very slow launch starts inside the nested timeout — needs 500ms but only has 200ms",
-                nodeId = "very-slow-work",
-                fromState = JobState.New,
-                toState = JobState.Active
-            ),
-            NarrativeEvent(
-                delayMs = 1100,
-                description = "The nested withTimeout(200) fires first! The very slow child has exceeded its 200ms budget."
-            ),
-            CancellationEvent(
-                delayMs = 1250,
-                description = "Nested withTimeout cancels the very slow child — TimeoutCancellationException",
-                sourceNodeId = "nested-timeout",
-                targetNodeId = "very-slow-work"
-            ),
-            StateChangeEvent(
-                delayMs = 1400,
-                description = "Very slow launch enters cancelling state",
-                nodeId = "very-slow-work",
-                fromState = JobState.Active,
-                toState = JobState.Cancelling
-            ),
-            StateChangeEvent(
-                delayMs = 1550,
-                description = "Very slow launch is fully cancelled",
-                nodeId = "very-slow-work",
-                fromState = JobState.Cancelling,
-                toState = JobState.Cancelled
-            ),
-            StateChangeEvent(
-                delayMs = 1700,
-                description = "Nested withTimeout scope is cancelled",
-                nodeId = "nested-timeout",
-                fromState = JobState.Active,
-                toState = JobState.Cancelling
-            ),
-            StateChangeEvent(
-                delayMs = 1850,
-                description = "Nested withTimeout scope fully cancelled",
-                nodeId = "nested-timeout",
-                fromState = JobState.Cancelling,
-                toState = JobState.Cancelled
-            ),
-            NarrativeEvent(
-                delayMs = 2000,
-                description = "The nested timeout was handled locally. The slow launch catches it and continues. Meanwhile, the fast child is about to finish."
-            ),
-            StateChangeEvent(
-                delayMs = 2150,
-                description = "Fast launch completes its work well within the outer timeout",
-                nodeId = "fast-work",
-                fromState = JobState.Active,
-                toState = JobState.Completing
-            ),
-            StateChangeEvent(
-                delayMs = 2300,
-                description = "Fast launch fully completed",
-                nodeId = "fast-work",
-                fromState = JobState.Completing,
-                toState = JobState.Completed
-            ),
-            StateChangeEvent(
-                delayMs = 2500,
-                description = "Medium async completes just in time — it finishes right before the outer timeout deadline",
-                nodeId = "medium-work",
-                fromState = JobState.Active,
-                toState = JobState.Completing
-            ),
-            StateChangeEvent(
-                delayMs = 2650,
-                description = "Medium async fully completed",
-                nodeId = "medium-work",
-                fromState = JobState.Completing,
-                toState = JobState.Completed
-            ),
-            NarrativeEvent(
-                delayMs = 2800,
-                description = "Outer timeout fires! 1000ms have elapsed. The slow launch is still running — it gets cancelled by the outer withTimeout."
-            ),
-            CancellationEvent(
-                delayMs = 2950,
-                description = "Outer withTimeout cancels the slow launch — TimeoutCancellationException",
-                sourceNodeId = "timeout-scope",
-                targetNodeId = "slow-work"
-            ),
-            StateChangeEvent(
-                delayMs = 3100,
-                description = "Slow launch enters cancelling state due to outer timeout",
-                nodeId = "slow-work",
-                fromState = JobState.Active,
-                toState = JobState.Cancelling
-            ),
-            StateChangeEvent(
-                delayMs = 3250,
-                description = "Slow launch is fully cancelled",
-                nodeId = "slow-work",
-                fromState = JobState.Cancelling,
-                toState = JobState.Cancelled
-            ),
-            StateChangeEvent(
-                delayMs = 3400,
-                description = "Outer withTimeout scope enters cancelling state",
-                nodeId = "timeout-scope",
-                fromState = JobState.Active,
-                toState = JobState.Cancelling
-            ),
-            StateChangeEvent(
-                delayMs = 3550,
-                description = "Outer withTimeout scope fully cancelled",
-                nodeId = "timeout-scope",
-                fromState = JobState.Cancelling,
-                toState = JobState.Cancelled
-            ),
-            StateChangeEvent(
-                delayMs = 3700,
-                description = "Scope continues — the outer try/catch absorbed TimeoutCancellationException from the outer withTimeout",
-                nodeId = "root",
-                fromState = JobState.Active,
-                toState = JobState.Completing
-            ),
-            StateChangeEvent(
-                delayMs = 3850,
-                description = "Scope fully completed",
-                nodeId = "root",
-                fromState = JobState.Completing,
-                toState = JobState.Completed
-            ),
-            NarrativeEvent(
-                delayMs = 4000,
-                description = "Key insights: Nested withTimeout scopes have independent clocks. The inner timeout fires first without affecting siblings. The outer timeout later cancels remaining children. TimeoutCancellationException is re-thrown by each withTimeout — you must catch it (or use withTimeoutOrNull) for the surrounding code to continue."
-            )
+            NarrativeEvent(0, "Same body, same timeout. LEFT uses withTimeout (throws on timeout — caller MUST try/catch). RIGHT uses withTimeoutOrNull (returns null — caller just checks). Watch the internal Job states — they're nearly identical. The difference is purely caller-facing."),
+            // Both scopes start
+            StateChangeEvent(100, "LEFT: scope Active", "wt-scope", JobState.New, JobState.Active),
+            StateChangeEvent(150, "RIGHT: scope Active", "or-scope", JobState.New, JobState.Active),
+            // Timeout blocks start
+            StateChangeEvent(300, "LEFT: withTimeout block Active", "wt-block", JobState.New, JobState.Active),
+            StateChangeEvent(350, "RIGHT: withTimeoutOrNull block Active", "or-block", JobState.New, JobState.Active),
+            // Slow work starts on both
+            StateChangeEvent(500, "LEFT: slow work starts", "wt-work", JobState.New, JobState.Active),
+            StateChangeEvent(550, "RIGHT: slow work starts", "or-work", JobState.New, JobState.Active),
+            NarrativeEvent(900, "Both timeouts fire at the same instant. The internal cancellation is the same."),
+            // Both timeouts fire
+            CancellationEvent(1100, "LEFT: timeout cancels slow work", "wt-block", "wt-work"),
+            CancellationEvent(1150, "RIGHT: timeout cancels slow work", "or-block", "or-work"),
+            StateChangeEvent(1300, "LEFT: slow work → Cancelling", "wt-work", JobState.Active, JobState.Cancelling),
+            StateChangeEvent(1350, "RIGHT: slow work → Cancelling", "or-work", JobState.Active, JobState.Cancelling),
+            StateChangeEvent(1500, "LEFT: slow work Cancelled", "wt-work", JobState.Cancelling, JobState.Cancelled),
+            StateChangeEvent(1550, "RIGHT: slow work Cancelled", "or-work", JobState.Cancelling, JobState.Cancelled),
+            StateChangeEvent(1700, "LEFT: withTimeout block → Cancelling", "wt-block", JobState.Active, JobState.Cancelling),
+            StateChangeEvent(1750, "RIGHT: withTimeoutOrNull block → Cancelling", "or-block", JobState.Active, JobState.Cancelling),
+            StateChangeEvent(1900, "LEFT: withTimeout block Cancelled — RE-THROWS TimeoutCancellationException to caller", "wt-block", JobState.Cancelling, JobState.Cancelled),
+            StateChangeEvent(1950, "RIGHT: withTimeoutOrNull block Cancelled — caught internally, RETURNS NULL", "or-block", JobState.Cancelling, JobState.Cancelled),
+            NarrativeEvent(2100, "LEFT: exception escapes withTimeout. The caller's try/catch absorbs it; without it, the exception would propagate up to coroutineScope and cancel it."),
+            NarrativeEvent(2400, "RIGHT: no exception. Caller's `val r = withTimeoutOrNull(...)` is just null. Code continues normally with `r ?: fallback`."),
+            // Both scopes complete normally (LEFT because of try/catch; RIGHT because no exception)
+            StateChangeEvent(2700, "LEFT: scope continues normally (try/catch handled the exception)", "wt-scope", JobState.Active, JobState.Completing),
+            StateChangeEvent(2750, "RIGHT: scope continues normally (no exception in the first place)", "or-scope", JobState.Active, JobState.Completing),
+            StateChangeEvent(2900, "LEFT: scope Completed", "wt-scope", JobState.Completing, JobState.Completed),
+            StateChangeEvent(2950, "RIGHT: scope Completed", "or-scope", JobState.Completing, JobState.Completed),
+            NarrativeEvent(3100, "Same internal behavior, very different ergonomics. Rule of thumb: if timeout is expected → withTimeoutOrNull. If timeout is an error worth propagating → withTimeout (and let it throw).")
         )
-
-        val kotlinCode = """
-            import kotlinx.coroutines.*
-
-            suspend fun main() = coroutineScope {
-                try {
-                    withTimeout(1000L) {
-                        // Fast child — completes well within the deadline
-                        launch {
-                            delay(300L)
-                            println("Fast work done")
-                        }
-
-                        // Medium child — completes just in time
-                        val result = async {
-                            delay(900L)
-                            "medium result"
-                        }
-
-                        // Slow child — will be cancelled by outer timeout
-                        launch {
-                            // Nested timeout with its own shorter deadline
-                            try {
-                                withTimeout(200L) {
-                                    launch {
-                                        delay(500L) // exceeds nested 200ms timeout
-                                        println("Very slow done") // never reached
-                                    }
-                                }
-                            } catch (e: TimeoutCancellationException) {
-                                println("Nested timeout caught: ${'$'}{e.message}")
-                            }
-
-                            delay(1500L) // exceeds outer 1000ms timeout
-                            println("Slow work done") // never reached
-                        }
-
-                        println("Medium result: ${'$'}{result.await()}")
-                    }
-                } catch (e: TimeoutCancellationException) {
-                    println("Outer timeout: ${'$'}{e.message}")
-                }
-
-                println("Program continues after all timeouts")
-            }
-        """.trimIndent()
 
         return EventTimeline(
             scenarioName = info.name,
-            tree = tree,
+            tree = withScope,
+            secondTree = orNullScope,
             events = events,
-            kotlinCode = kotlinCode
+            kotlinCode = """
+// LEFT — withTimeout: caller MUST try/catch
+suspend fun left() = coroutineScope {
+    try {
+        val r = withTimeout(500L) {
+            delay(1000L)
+            "value"                  // never returned
+        }
+        println(r)
+    } catch (e: TimeoutCancellationException) {
+        println("timed out")
+    }
+}
+
+// RIGHT — withTimeoutOrNull: caller just checks
+suspend fun right() = coroutineScope {
+    val r: String? = withTimeoutOrNull(500L) {
+        delay(1000L)
+        "value"                      // never returned
+    }
+    println(r ?: "timed out")
+}
+            """.trimIndent()
         )
     }
 

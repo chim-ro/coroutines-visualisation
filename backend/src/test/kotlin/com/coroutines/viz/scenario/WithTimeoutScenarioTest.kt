@@ -71,40 +71,42 @@ class WithTimeoutScenarioTest {
         assertTrue(fastCompleted < slowCancelled, "Fast work should complete before slow work is cancelled")
     }
 
-    // ── Advanced: Complex Case (nested timeouts) ─────────────────────
+    // ── Advanced: side-by-side withTimeout vs withTimeoutOrNull ──────
 
     @Test
-    fun `advanced - nested withTimeout fires independently, outer timeout cancels remaining`() {
+    fun `advanced - withTimeout and withTimeoutOrNull both cancel internally, both outer scopes still complete`() {
         val timeline = scenario.buildTimeline("advanced")
 
         assertTimelineIsValid(timeline)
         assertNoNoopStateChanges(timeline)
         assertStateTransitionConsistency(timeline)
 
-        // Tree: root → timeout-scope → {fast-work, medium-work, slow-work → nested-timeout → very-slow-work}
-        val nodeIds = collectNodeIds(timeline.tree)
-        assertEquals(7, nodeIds.size)
+        // Two trees: LEFT (withTimeout) + RIGHT (withTimeoutOrNull)
+        assertNotNull(timeline.secondTree, "Advanced level must have a secondTree (side-by-side)")
+        assertEquals("wt-scope", timeline.tree.id)
+        assertEquals("or-scope", timeline.secondTree!!.id)
 
-        // Nested timeout fires first: very-slow-work and nested-timeout cancelled
-        assertNodeReachesFinalState(timeline, "very-slow-work", JobState.Cancelled)
-        assertNodeReachesFinalState(timeline, "nested-timeout", JobState.Cancelled)
+        // 3 nodes per side (outer scope + timeout block + slow work)
+        assertEquals(3, collectNodeIds(timeline.tree).size)
+        assertEquals(3, collectNodeIds(timeline.secondTree!!).size)
 
-        // Fast and medium complete before outer timeout
-        assertNodeReachesFinalState(timeline, "fast-work", JobState.Completed)
-        assertNodeReachesFinalState(timeline, "medium-work", JobState.Completed)
+        // Both internal Jobs end Cancelled (timeout fired on both)
+        assertNodeReachesFinalState(timeline, "wt-work", JobState.Cancelled)
+        assertNodeReachesFinalState(timeline, "wt-block", JobState.Cancelled)
+        assertNodeReachesFinalState(timeline, "or-work", JobState.Cancelled)
+        assertNodeReachesFinalState(timeline, "or-block", JobState.Cancelled)
 
-        // Outer timeout cancels slow-work and timeout-scope
-        assertNodeReachesFinalState(timeline, "slow-work", JobState.Cancelled)
-        assertNodeReachesFinalState(timeline, "timeout-scope", JobState.Cancelled)
+        // CRITICAL: both outer scopes still complete normally
+        // (LEFT because the caller's try/catch absorbed the exception;
+        //  RIGHT because withTimeoutOrNull doesn't throw in the first place)
+        assertNodeReachesFinalState(timeline, "wt-scope", JobState.Completed)
+        assertNodeReachesFinalState(timeline, "or-scope", JobState.Completed)
 
-        // Root still completes
-        assertNodeReachesFinalState(timeline, "root", JobState.Completed)
-
-        // Nested timeout cancellation fires before outer timeout cancellation
+        // Each timeout block must cancel its own child
         val cancellations = timeline.events.filterIsInstance<CancellationEvent>()
-        assertEquals(2, cancellations.size, "Should have 2 timeout cancellations (nested + outer)")
-        val nestedIdx = cancellations.indexOfFirst { it.sourceNodeId == "nested-timeout" }
-        val outerIdx = cancellations.indexOfFirst { it.sourceNodeId == "timeout-scope" }
-        assertTrue(nestedIdx < outerIdx, "Nested timeout should fire before outer timeout")
+        assertTrue(cancellations.any { it.sourceNodeId == "wt-block" && it.targetNodeId == "wt-work" },
+            "LEFT: withTimeout block must cancel its work child")
+        assertTrue(cancellations.any { it.sourceNodeId == "or-block" && it.targetNodeId == "or-work" },
+            "RIGHT: withTimeoutOrNull block must cancel its work child")
     }
 }
