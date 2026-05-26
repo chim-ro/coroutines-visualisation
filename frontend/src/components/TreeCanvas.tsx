@@ -250,11 +250,21 @@ export const TreeCanvas: React.FC<Props> = ({
 
   const handleMouseUp = () => setIsDragging(false);
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(z => Math.min(Math.max(z * factor, 0.3), 3));
-  };
+  // React attaches its onWheel synthetic handler as a passive listener, so
+  // e.preventDefault() inside an onWheel prop does nothing — the page scrolls
+  // along with our custom canvas zoom. Attach the wheel listener manually
+  // with { passive: false } so we can actually preventDefault.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom(z => Math.min(Math.max(z * factor, 0.3), 3));
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, []);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     if (!onNodeRightClick) return;
@@ -281,7 +291,6 @@ export const TreeCanvas: React.FC<Props> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
       onContextMenu={handleContextMenu}
     />
   );
