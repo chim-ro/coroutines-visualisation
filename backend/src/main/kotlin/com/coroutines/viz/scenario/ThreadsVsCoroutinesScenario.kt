@@ -76,7 +76,7 @@ class ThreadsVsCoroutinesScenario : Scenario {
         val events = listOf(
             NarrativeEvent(0, "Left: each task gets its own thread — Right: all tasks share 1 thread"),
             StateChangeEvent(100, "Main dispatches threads", "sync-root", JobState.New, JobState.Active),
-            StateChangeEvent(100, "runBlocking starts", "cr-root", JobState.New, JobState.Active),
+            StateChangeEvent(100, "runBlocking starts (samples only — production uses suspend fun main)", "cr-root", JobState.New, JobState.Active),
 
             StateChangeEvent(200, "Thread-1: task 1 starts (Thread.sleep — blocked!)", "sync-task1", JobState.New, JobState.Active),
             StateChangeEvent(200, "Thread-2: task 2 starts (Thread.sleep — blocked!)", "sync-task2", JobState.New, JobState.Active),
@@ -192,7 +192,7 @@ fun main() = runBlocking {
         val events = listOf(
             NarrativeEvent(0, "Left: 3 tasks → 3 threads (each blocked) — Right: 3 tasks → 1 thread (interleaved)"),
             StateChangeEvent(100, "Main dispatches 3 threads", "sync-root", JobState.New, JobState.Active),
-            StateChangeEvent(100, "runBlocking starts", "cr-root", JobState.New, JobState.Active),
+            StateChangeEvent(100, "runBlocking starts (samples only — production uses suspend fun main)", "cr-root", JobState.New, JobState.Active),
 
             StateChangeEvent(200, "Thread-1: task 1 starts (Thread.sleep — blocked!)", "sync-task1", JobState.New, JobState.Active),
             StateChangeEvent(200, "Thread-2: task 2 starts (Thread.sleep — blocked!)", "sync-task2", JobState.New, JobState.Active),
@@ -334,7 +334,7 @@ fun main() = runBlocking {
         val events = listOf(
             NarrativeEvent(0, "Left: 4 tasks → 4 threads (each blocked) — Right: 4 tasks → main + IO thread"),
             StateChangeEvent(100, "Main dispatches 4 threads", "sync-root", JobState.New, JobState.Active),
-            StateChangeEvent(100, "runBlocking starts", "cr-root", JobState.New, JobState.Active),
+            StateChangeEvent(100, "runBlocking starts (samples only — production uses suspend fun main)", "cr-root", JobState.New, JobState.Active),
 
             StateChangeEvent(200, "Thread-1: task 1 (Thread.sleep — blocked!)", "sync-task1", JobState.New, JobState.Active),
             StateChangeEvent(200, "Thread-2: task 2 (Thread.sleep — blocked!)", "sync-task2", JobState.New, JobState.Active),
@@ -347,7 +347,7 @@ fun main() = runBlocking {
             StateChangeEvent(450, "CR: launch #4 starts on main thread", "cr-task4", JobState.New, JobState.Active),
 
             StateChangeEvent(500, "CR: #1 enters withContext(IO) — switches to IO thread", "cr-task1-io", JobState.New, JobState.Active),
-            NarrativeEvent(520, "CR: task 1 switched to IO thread via withContext — main thread still free"),
+            NarrativeEvent(520, "CR: task 1 switched to IO thread via withContext — main thread still free. (Note: Dispatchers.IO has a shared 64-thread limit — under heavy load use Dispatchers.IO.limitedParallelism(n) or virtual threads on JVM 21+.)"),
 
             StateChangeEvent(550, "CR: #1 suspends on main (running on IO)", "cr-task1", JobState.Active, JobState.Suspended),
             StateChangeEvent(600, "CR: #2 suspends (delay)", "cr-task2", JobState.Active, JobState.Suspended),

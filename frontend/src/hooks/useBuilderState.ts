@@ -6,7 +6,7 @@ function genId(): string {
   return `builder-node-${nextId++}`;
 }
 
-function createDefaultNode(parentBuilder?: string): BuilderNodeConfig {
+function createDefaultNode(_parentBuilder?: string): BuilderNodeConfig {
   return {
     id: genId(),
     displayName: `coroutine-${nextId - 1}`,

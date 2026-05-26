@@ -12,7 +12,18 @@ object ScenarioRegistry {
         WithTimeoutScenario(),
         CoroutineContextScenario(),
         DispatchersScenario(),
-        ThreadsVsCoroutinesScenario()
+        ThreadsVsCoroutinesScenario(),
+        AsyncAwaitExceptionScenario(),
+        NonCancellableContextScenario(),
+        CooperativeCancellationScenario(),
+        InvokeOnCompletionScenario(),
+        LazyStartScenario(),
+        JobFactoryTrapScenario(),
+        AsyncPropagationContrastScenario(),
+        CancelledScopeTrapScenario(),
+        ExternalScopeScenario(),
+        CoroutineExceptionHandlerScenario(),
+        WithTimeoutOrNullScenario()
     ).associateBy { it.info.id }
 
     fun listAll(): List<ScenarioInfo> = scenarios.values.map { it.info }

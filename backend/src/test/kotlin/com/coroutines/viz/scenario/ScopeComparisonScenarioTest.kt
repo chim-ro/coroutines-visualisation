@@ -94,9 +94,11 @@ class ScopeComparisonScenarioTest {
         assertNodeReachesFinalState(timeline, "ss-child-1", JobState.Completed)
         assertNodeReachesFinalState(timeline, "ss-root", JobState.Completed)
 
-        // Both exception events should exist (one per side)
+        // coroutineScope side: exception propagates to the scope.
+        // supervisorScope side: exception goes to the CoroutineExceptionHandler, NOT to the supervisor.
         val exceptions = timeline.events.filterIsInstance<ExceptionEvent>()
         assertTrue(exceptions.any { it.sourceNodeId == "cs-child-2" && it.targetNodeId == "cs-root" })
-        assertTrue(exceptions.any { it.sourceNodeId == "ss-child-2" && it.targetNodeId == "ss-root" })
+        assertTrue(exceptions.none { it.targetNodeId == "ss-root" },
+            "Exception from a launch child of supervisorScope must not propagate to the supervisor")
     }
 }

@@ -14,8 +14,8 @@ class DownwardCancellationScenario : Scenario {
     override fun buildTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -84,7 +84,7 @@ class DownwardCancellationScenario : Scenario {
             tree = tree,
             events = events,
             kotlinCode = """
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     val parentJob = launch {
         launch {            // child #1
             launch {        // grandchild #1a
@@ -119,8 +119,8 @@ fun main() = runBlocking {
     private fun buildBeginnerTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -164,7 +164,7 @@ fun main() = runBlocking {
             tree = tree,
             events = events,
             kotlinCode = """
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     val parentJob = launch {
         launch {  // child
             delay(5000)
@@ -183,8 +183,8 @@ fun main() = runBlocking {
     private fun buildAdvancedTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -276,7 +276,7 @@ fun main() = runBlocking {
             tree = tree,
             events = events,
             kotlinCode = """
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     val parentJob = launch {
         launch {                    // child #1
             launch {                // grandchild #1a

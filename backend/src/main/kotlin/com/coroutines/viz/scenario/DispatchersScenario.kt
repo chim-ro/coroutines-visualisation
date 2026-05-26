@@ -59,7 +59,7 @@ class DispatchersScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 100,
-                description = "runBlocking starts on the main thread — it uses a confined dispatcher by default",
+                description = "runBlocking starts on the main thread — it uses a confined dispatcher by default. (In production code, prefer `suspend fun main() = coroutineScope { ... }`; runBlocking is for samples.)",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -84,7 +84,7 @@ class DispatchersScenario : Scenario {
             ),
             NarrativeEvent(
                 delayMs = 900,
-                description = "Dispatchers.IO uses a larger thread pool (default 64 threads). Best for blocking I/O: file access, network calls, database queries."
+                description = "Dispatchers.IO uses a larger thread pool (default 64 threads, shared across the whole app). Watch out: under heavy load this limit is shared by every IO-bound coroutine, which can starve the pool. Modern alternatives: `Dispatchers.IO.limitedParallelism(n)` for per-service limits, or Project Loom (JVM 21+) for virtual threads."
             ),
             StateChangeEvent(
                 delayMs = 1100,
@@ -96,6 +96,10 @@ class DispatchersScenario : Scenario {
             NarrativeEvent(
                 delayMs = 1300,
                 description = "The switcher coroutine needs to do CPU work but is running on the main thread. It uses withContext to switch dispatchers without launching a new coroutine."
+            ),
+            NarrativeEvent(
+                delayMs = 1400,
+                description = "Note: withContext is a suspending function, NOT a coroutine builder. It doesn't create a new Job — it just changes the context for a block. The node below is drawn that way for clarity, but it's really a dispatcher switch within the switcher coroutine."
             ),
             StateChangeEvent(
                 delayMs = 1500,
@@ -253,7 +257,7 @@ class DispatchersScenario : Scenario {
             val events = listOf(
                 StateChangeEvent(
                     delayMs = 100,
-                    description = "runBlocking starts on the main thread",
+                    description = "runBlocking starts on the main thread. (In real apps, prefer `suspend fun main()`; runBlocking is for samples.)",
                     nodeId = "root",
                     fromState = JobState.New,
                     toState = JobState.Active
@@ -386,7 +390,7 @@ class DispatchersScenario : Scenario {
                 ),
                 StateChangeEvent(
                     delayMs = 100,
-                    description = "runBlocking starts on the main thread — it uses a confined dispatcher by default",
+                    description = "runBlocking starts on the main thread — confined dispatcher by default. (Production code: prefer `suspend fun main() = coroutineScope { ... }`.)",
                     nodeId = "root",
                     fromState = JobState.New,
                     toState = JobState.Active
@@ -411,7 +415,7 @@ class DispatchersScenario : Scenario {
                 ),
                 NarrativeEvent(
                     delayMs = 900,
-                    description = "Dispatchers.IO uses a larger thread pool (default 64 threads). Best for blocking I/O: file access, network calls, database queries. It shares threads with Default but can grow beyond the core count."
+                    description = "Dispatchers.IO uses a larger thread pool (default 64 threads, shared app-wide) — but that shared limit is easy to saturate under load. Modern preference: `Dispatchers.IO.limitedParallelism(n)` per service for isolation, or Project Loom virtual threads (JVM 21+) for unlimited cheap blocking."
                 ),
                 StateChangeEvent(
                     delayMs = 1100,
@@ -434,6 +438,10 @@ class DispatchersScenario : Scenario {
                 NarrativeEvent(
                     delayMs = 1700,
                     description = "The switcher coroutine will use withContext twice sequentially — first switching to Default for CPU work, then to IO for a blocking call. Each withContext suspends the caller until the block completes."
+                ),
+                NarrativeEvent(
+                    delayMs = 1800,
+                    description = "Note: withContext is a suspending function, NOT a coroutine builder. It doesn't create a new Job — it just changes the context for a block. The nodes below are drawn that way for clarity, but they're really just dispatcher switches within the switcher coroutine."
                 ),
                 StateChangeEvent(
                     delayMs = 1900,

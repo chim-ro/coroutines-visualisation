@@ -14,8 +14,8 @@ class NestedScopesScenario : Scenario {
     override fun buildTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -60,8 +60,8 @@ class NestedScopesScenario : Scenario {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "Deep nested structure: runBlocking > supervisorScope > 3 branches"),
-            StateChangeEvent(100, "runBlocking starts", "root", JobState.New, JobState.Active),
+            NarrativeEvent(0, "Deep nested structure: coroutineScope > supervisorScope > 3 branches"),
+            StateChangeEvent(100, "Outer coroutineScope starts", "root", JobState.New, JobState.Active),
             StateChangeEvent(200, "supervisorScope starts", "supervisor", JobState.New, JobState.Active),
             StateChangeEvent(400, "Launch A starts", "branch-a", JobState.New, JobState.Active),
             StateChangeEvent(500, "Launch B starts", "branch-b", JobState.New, JobState.Active),
@@ -75,8 +75,8 @@ class NestedScopesScenario : Scenario {
             ExceptionEvent(1500, "Exception from B1 propagates up to launch B", "b1", "branch-b", "IOException"),
             StateChangeEvent(1600, "Launch B enters Cancelling", "branch-b", JobState.Active, JobState.Cancelling),
             StateChangeEvent(1700, "Launch B cancelled", "branch-b", JobState.Cancelling, JobState.Cancelled),
-            ExceptionEvent(1800, "Exception reaches supervisorScope", "branch-b", "supervisor", "IOException"),
-            NarrativeEvent(1900, "SupervisorJob stops the exception — branches A and C are safe!"),
+            NarrativeEvent(1800, "Exception from launch B reaches the CoroutineExceptionHandler — it is NOT propagated to the supervisor (B was a direct child of supervisorScope)"),
+            NarrativeEvent(1900, "SupervisorJob does not see the failure — branches A and C are safe"),
             StateChangeEvent(2200, "Async A1 completes work", "a1", JobState.Active, JobState.Completing),
             StateChangeEvent(2300, "Async A1 completed", "a1", JobState.Completing, JobState.Completed),
             StateChangeEvent(2400, "Async A2 completes work", "a2", JobState.Active, JobState.Completing),
@@ -87,8 +87,8 @@ class NestedScopesScenario : Scenario {
             StateChangeEvent(2900, "Launch C completed", "branch-c", JobState.Completing, JobState.Completed),
             StateChangeEvent(3000, "Supervisor scope completing", "supervisor", JobState.Active, JobState.Completing),
             StateChangeEvent(3100, "Supervisor scope completed", "supervisor", JobState.Completing, JobState.Completed),
-            StateChangeEvent(3200, "runBlocking completing", "root", JobState.Active, JobState.Completing),
-            StateChangeEvent(3300, "runBlocking completed", "root", JobState.Completing, JobState.Completed),
+            StateChangeEvent(3200, "Outer coroutineScope completing", "root", JobState.Active, JobState.Completing),
+            StateChangeEvent(3300, "Outer coroutineScope completed", "root", JobState.Completing, JobState.Completed),
             NarrativeEvent(3400, "SupervisorJob at level 2 contained the failure — siblings completed normally")
         )
 
@@ -97,7 +97,7 @@ class NestedScopesScenario : Scenario {
             tree = tree,
             events = events,
             kotlinCode = """
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     supervisorScope {
         launch {                        // branch A
             val a1 = async { "result1" }
@@ -128,8 +128,8 @@ fun main() = runBlocking {
         "beginner" -> {
             val tree = CoroutineNode(
                 id = "root",
-                displayName = "runBlocking",
-                builder = BuilderType.RunBlocking,
+                displayName = "coroutineScope",
+                builder = BuilderType.CoroutineScope,
                 jobType = JobType.Job,
                 initialState = JobState.New,
                 children = listOf(
@@ -160,22 +160,22 @@ fun main() = runBlocking {
             )
 
             val events = listOf(
-                NarrativeEvent(0, "Simple nesting: runBlocking > supervisorScope > 2 children"),
-                StateChangeEvent(100, "runBlocking starts", "root", JobState.New, JobState.Active),
+                NarrativeEvent(0, "Simple nesting: coroutineScope > supervisorScope > 2 children"),
+                StateChangeEvent(100, "Outer coroutineScope starts", "root", JobState.New, JobState.Active),
                 StateChangeEvent(300, "supervisorScope starts", "supervisor", JobState.New, JobState.Active),
                 StateChangeEvent(500, "Launch A starts", "child-a", JobState.New, JobState.Active),
                 StateChangeEvent(700, "Launch B starts", "child-b", JobState.New, JobState.Active),
                 NarrativeEvent(1000, "Launch B throws an exception"),
                 StateChangeEvent(1100, "Launch B enters Cancelling", "child-b", JobState.Active, JobState.Cancelling),
                 StateChangeEvent(1200, "Launch B cancelled", "child-b", JobState.Cancelling, JobState.Cancelled),
-                ExceptionEvent(1400, "Exception from B reaches supervisorScope", "child-b", "supervisor", "IOException"),
-                NarrativeEvent(1500, "SupervisorJob absorbs the exception — child A is not affected"),
+                NarrativeEvent(1400, "Exception from B reaches the CoroutineExceptionHandler — it is NOT propagated to the supervisor (B was a direct child of supervisorScope)"),
+                NarrativeEvent(1500, "SupervisorJob does not see the failure — child A is unaffected"),
                 StateChangeEvent(1800, "Launch A completing", "child-a", JobState.Active, JobState.Completing),
                 StateChangeEvent(1900, "Launch A completed", "child-a", JobState.Completing, JobState.Completed),
                 StateChangeEvent(2100, "supervisorScope completing", "supervisor", JobState.Active, JobState.Completing),
                 StateChangeEvent(2200, "supervisorScope completed", "supervisor", JobState.Completing, JobState.Completed),
-                StateChangeEvent(2400, "runBlocking completing", "root", JobState.Active, JobState.Completing),
-                StateChangeEvent(2500, "runBlocking completed", "root", JobState.Completing, JobState.Completed),
+                StateChangeEvent(2400, "Outer coroutineScope completing", "root", JobState.Active, JobState.Completing),
+                StateChangeEvent(2500, "Outer coroutineScope completed", "root", JobState.Completing, JobState.Completed),
                 NarrativeEvent(2600, "SupervisorJob contained the failure — the surviving child completed normally")
             )
 
@@ -184,7 +184,7 @@ fun main() = runBlocking {
                 tree = tree,
                 events = events,
                 kotlinCode = """
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     supervisorScope {
         launch {                    // child A
             delay(1000)
@@ -203,8 +203,8 @@ fun main() = runBlocking {
         "advanced" -> {
             val tree = CoroutineNode(
                 id = "root",
-                displayName = "runBlocking",
-                builder = BuilderType.RunBlocking,
+                displayName = "coroutineScope",
+                builder = BuilderType.CoroutineScope,
                 jobType = JobType.Job,
                 initialState = JobState.New,
                 children = listOf(
@@ -261,8 +261,8 @@ fun main() = runBlocking {
             )
 
             val events = listOf(
-                NarrativeEvent(0, "5-level tree: runBlocking > supervisorScope > 3 branches with mixed scope types"),
-                StateChangeEvent(100, "runBlocking starts", "root", JobState.New, JobState.Active),
+                NarrativeEvent(0, "5-level tree: coroutineScope > supervisorScope > 3 branches with mixed scope types"),
+                StateChangeEvent(100, "Outer coroutineScope starts", "root", JobState.New, JobState.Active),
                 StateChangeEvent(200, "supervisorScope starts", "supervisor", JobState.New, JobState.Active),
                 StateChangeEvent(350, "Launch A starts", "branch-a", JobState.New, JobState.Active),
                 StateChangeEvent(450, "Launch B starts", "branch-b", JobState.New, JobState.Active),
@@ -278,8 +278,8 @@ fun main() = runBlocking {
                 ExceptionEvent(1500, "Exception from B1 propagates to launch B", "b1", "branch-b", "IOException"),
                 StateChangeEvent(1600, "Launch B enters Cancelling", "branch-b", JobState.Active, JobState.Cancelling),
                 StateChangeEvent(1700, "Launch B cancelled", "branch-b", JobState.Cancelling, JobState.Cancelled),
-                ExceptionEvent(1800, "Exception reaches supervisorScope", "branch-b", "supervisor", "IOException"),
-                NarrativeEvent(1900, "SupervisorJob absorbs the exception — branches A and C continue unaffected"),
+                NarrativeEvent(1800, "Exception from launch B reaches the CoroutineExceptionHandler — it is NOT propagated to the supervisor (B was a direct child of supervisorScope)"),
+                NarrativeEvent(1900, "SupervisorJob does not see the failure — branches A and C continue unaffected"),
                 StateChangeEvent(2100, "Async A1 completes work", "a1", JobState.Active, JobState.Completing),
                 StateChangeEvent(2200, "Async A1 completed", "a1", JobState.Completing, JobState.Completed),
                 StateChangeEvent(2300, "Async A2 completes work", "a2", JobState.Active, JobState.Completing),
@@ -294,8 +294,8 @@ fun main() = runBlocking {
                 StateChangeEvent(3200, "Launch C completed", "branch-c", JobState.Completing, JobState.Completed),
                 StateChangeEvent(3300, "supervisorScope completing", "supervisor", JobState.Active, JobState.Completing),
                 StateChangeEvent(3400, "supervisorScope completed", "supervisor", JobState.Completing, JobState.Completed),
-                StateChangeEvent(3500, "runBlocking completing", "root", JobState.Active, JobState.Completing),
-                StateChangeEvent(3600, "runBlocking completed", "root", JobState.Completing, JobState.Completed),
+                StateChangeEvent(3500, "Outer coroutineScope completing", "root", JobState.Active, JobState.Completing),
+                StateChangeEvent(3600, "Outer coroutineScope completed", "root", JobState.Completing, JobState.Completed),
                 NarrativeEvent(3700, "Multiple fault boundaries: coroutineScope groups A's children, supervisorScope isolates B's failure from A and C")
             )
 
@@ -304,7 +304,7 @@ fun main() = runBlocking {
                 tree = tree,
                 events = events,
                 kotlinCode = """
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     supervisorScope {
         launch {                                // branch A
             coroutineScope {                    // groups A's children

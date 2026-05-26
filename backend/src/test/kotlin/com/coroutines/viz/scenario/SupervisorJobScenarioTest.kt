@@ -38,9 +38,12 @@ class SupervisorJobScenarioTest {
         val cancellations = timeline.events.filterIsInstance<CancellationEvent>()
         assertEquals(0, cancellations.size, "SupervisorJob should NOT send cancellation to siblings")
 
-        // Exception event should exist (exception reaches supervisor)
+        // Exception from a launch child of supervisorScope goes to the
+        // CoroutineExceptionHandler, NOT to the supervisor — so no
+        // ExceptionEvent should target the supervisor.
         val exceptions = timeline.events.filterIsInstance<ExceptionEvent>()
-        assertTrue(exceptions.any { it.targetNodeId == "root" })
+        assertTrue(exceptions.none { it.targetNodeId == "root" },
+            "Exception from launch child of supervisorScope must not be drawn as propagating to the supervisor")
     }
 
     // ── Intermediate: Failure/Edge Case ──────────────────────────────

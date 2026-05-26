@@ -47,9 +47,12 @@ class CoroutineContextScenarioTest {
         assertNoNoopStateChanges(timeline)
         assertStateTransitionConsistency(timeline)
 
-        // Tree: root → {child-inherits, child-named, child-broken → orphan}
-        val nodeIds = collectNodeIds(timeline.tree)
-        assertEquals(5, nodeIds.size)
+        // Main tree: root → {child-inherits, child-named, child-broken}
+        // Orphan lives in secondTree to reflect that it's NOT structurally a child.
+        val mainIds = collectNodeIds(timeline.tree)
+        assertEquals(4, mainIds.size)
+        assertNotNull(timeline.secondTree, "Orphan must be in secondTree (detached)")
+        assertEquals("orphan", timeline.secondTree!!.id)
 
         // BUG DETECTION: The orphan (launch(Job())) completes AFTER root completes.
         // This is the intentional demonstration of broken structured concurrency.
@@ -65,10 +68,11 @@ class CoroutineContextScenarioTest {
         assertTrue(childBrokenCompleted < orphanCompleted,
             "child-broken should complete before orphan (doesn't wait for launch(Job()))")
 
-        // All nodes eventually complete
-        for (id in nodeIds) {
+        // All main-tree nodes eventually complete, plus the detached orphan
+        for (id in mainIds) {
             assertNodeReachesFinalState(timeline, id, JobState.Completed)
         }
+        assertNodeReachesFinalState(timeline, "orphan", JobState.Completed)
     }
 
     // ── Advanced: Complex Case (multiple context overrides + Job() danger) ──
@@ -81,9 +85,12 @@ class CoroutineContextScenarioTest {
         assertNoNoopStateChanges(timeline)
         assertStateTransitionConsistency(timeline)
 
-        // Tree: root → {child-inherits, child-named, child-dispatched, child-broken → orphan}
-        val nodeIds = collectNodeIds(timeline.tree)
-        assertEquals(6, nodeIds.size)
+        // Main tree: root → {child-inherits, child-named, child-dispatched, child-broken}
+        // Orphan lives in secondTree to reflect that it's NOT structurally a child.
+        val mainIds = collectNodeIds(timeline.tree)
+        assertEquals(5, mainIds.size)
+        assertNotNull(timeline.secondTree, "Orphan must be in secondTree (detached)")
+        assertEquals("orphan", timeline.secondTree!!.id)
 
         // All normal children complete before root
         val stateChanges = timeline.events.filterIsInstance<StateChangeEvent>()

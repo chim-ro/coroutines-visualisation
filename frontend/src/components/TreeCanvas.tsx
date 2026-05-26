@@ -16,11 +16,14 @@ interface Props {
   onNodeRightClick?: (nodeId: string, screenX: number, screenY: number) => void;
   hoveredNodeId?: string | null;
   loadCounter?: number;
+  diffHighlightNodes?: Set<string>;
+  leftLabel?: string;
+  rightLabel?: string;
 }
 
 export const TreeCanvas: React.FC<Props> = ({
   layoutRoot, secondLayoutRoot, nodeAnimations, waveAnimations, selectedNodeId, onNodeClick,
-  onNodeRightClick, hoveredNodeId, loadCounter,
+  onNodeRightClick, hoveredNodeId: _hoveredNodeId, loadCounter, diffHighlightNodes, leftLabel, rightLabel,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -62,15 +65,17 @@ export const TreeCanvas: React.FC<Props> = ({
       maxY = Math.max(maxY, b2.maxY);
     }
     const treeWidth = maxX - bounds.minX + 100;
-    const treeHeight = maxY - bounds.minY + 150;
+    const hasLabels = !!(leftLabel || rightLabel);
+    const labelPadding = hasLabels ? 30 : 0;
+    const treeHeight = maxY - bounds.minY + 150 + labelPadding;
     const scaleX = w / treeWidth;
     const scaleY = h / treeHeight;
     const newZoom = Math.min(scaleX, scaleY, 1.5);
     const centerX = (w / newZoom - treeWidth) / 2 - bounds.minX + 50;
-    const centerY = 20;
+    const centerY = 20 + labelPadding;
     setZoom(newZoom);
     setPan({ x: centerX, y: centerY });
-  }, [layoutRoot, secondLayoutRoot, loadCounter]);
+  }, [layoutRoot, secondLayoutRoot, loadCounter, leftLabel, rightLabel]);
 
   // Render loop
   useEffect(() => {
@@ -142,6 +147,43 @@ export const TreeCanvas: React.FC<Props> = ({
         drawNode(ctx, node, node.id === selectedNodeId, nodeAnimations, now);
       }
 
+      // Draw diff highlight borders
+      if (diffHighlightNodes && diffHighlightNodes.size > 0) {
+        for (const node of getAllNodes()) {
+          if (diffHighlightNodes.has(node.id)) {
+            ctx.save();
+            ctx.strokeStyle = '#ff9e64';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.roundRect(node.x - 55, node.y - 25, 110, 50, 8);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          }
+        }
+      }
+
+      // Draw tree labels
+      if (leftLabel && layoutRoot) {
+        const b = getTreeBounds(layoutRoot);
+        ctx.save();
+        ctx.fillStyle = TEXT_DIM;
+        ctx.font = 'bold 13px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(leftLabel, (b.minX + b.maxX) / 2, b.minY - 35);
+        ctx.restore();
+      }
+      if (rightLabel && secondLayoutRoot) {
+        const b = getTreeBounds(secondLayoutRoot);
+        ctx.save();
+        ctx.fillStyle = TEXT_DIM;
+        ctx.font = 'bold 13px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(rightLabel, (b.minX + b.maxX) / 2, b.minY - 35);
+        ctx.restore();
+      }
+
       ctx.restore();
 
       animFrameRef.current = requestAnimationFrame(render);
@@ -153,7 +195,7 @@ export const TreeCanvas: React.FC<Props> = ({
       running = false;
       cancelAnimationFrame(animFrameRef.current);
     };
-  }, [layoutRoot, secondLayoutRoot, nodeAnimations, waveAnimations, selectedNodeId, pan, zoom, getAllNodes, buildNodeMap]);
+  }, [layoutRoot, secondLayoutRoot, nodeAnimations, waveAnimations, selectedNodeId, pan, zoom, getAllNodes, buildNodeMap, diffHighlightNodes, leftLabel, rightLabel]);
 
   // Mouse handlers
   const handleMouseDown = (e: React.MouseEvent) => {

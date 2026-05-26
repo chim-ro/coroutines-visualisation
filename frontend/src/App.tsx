@@ -9,6 +9,10 @@ import { NodeContextMenu } from './components/NodeContextMenu';
 import { CodePanel } from './components/CodePanel';
 import { ScenarioBuilderPanel } from './builder/ScenarioBuilderPanel';
 import { useAnimationEngine } from './hooks/useAnimationEngine';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useQuizMode } from './hooks/useQuizMode';
+import { QuizPanel } from './components/QuizPanel';
+import { ComparisonPanel } from './components/ComparisonPanel';
 import { fetchTimeline } from './api/scenarioApi';
 import { CustomScenario } from './builder/types';
 import { EventTimeline, LayoutNode } from './types';
@@ -52,6 +56,63 @@ const App: React.FC = () => {
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [kotlinCode, setKotlinCode] = useState('');
+  const [showComparison, setShowComparison] = useState(false);
+  const [diffHighlightNodes, setDiffHighlightNodes] = useState<Set<string>>(new Set());
+  const [comparisonLabels, setComparisonLabels] = useState<{ left: string; right: string } | null>(null);
+
+  const quiz = useQuizMode();
+
+  useKeyboardShortcuts(controls, animState.isPlaying);
+
+  // Keep quiz mode in sync with node states
+  useEffect(() => {
+    quiz.updateNodeStates(animState.nodeStates);
+  }, [animState.nodeStates, quiz]);
+
+  const handleToggleQuiz = useCallback(() => {
+    if (quiz.state.quizEnabled) {
+      quiz.deactivate(controls);
+    } else {
+      quiz.activate(controls);
+    }
+  }, [quiz, controls]);
+
+  const handleCompare = useCallback(() => {
+    setShowComparison(true);
+  }, []);
+
+  const handleComparisonGenerate = useCallback((timeline: EventTimeline) => {
+    setShowComparison(false);
+    setDiffHighlightNodes(new Set());
+    setComparisonLabels({ left: timeline.scenarioName.split(' vs ')[0] ?? 'Left', right: timeline.scenarioName.split(' vs ')[1] ?? 'Right' });
+    controls.loadTimeline(timeline);
+    setKotlinCode(timeline.kotlinCode ?? '');
+  }, [controls]);
+
+  // Compute diff highlights when playback finishes in comparison mode
+  useEffect(() => {
+    if (!comparisonLabels) return;
+    if (!animState.timeline) return;
+    if (animState.currentEventIndex < animState.totalEvents - 1) return;
+    if (animState.totalEvents === 0) return;
+
+    // Playback finished — compute diffs
+    const states = animState.nodeStates;
+    const diffs = new Set<string>();
+
+    for (const [id, state] of states) {
+      if (id.startsWith('right-')) {
+        const originalId = id.slice(6);
+        const originalState = states.get(originalId);
+        if (originalState && originalState !== state) {
+          diffs.add(id);
+          diffs.add(originalId);
+        }
+      }
+    }
+
+    setDiffHighlightNodes(diffs);
+  }, [animState.currentEventIndex, animState.totalEvents, animState.nodeStates, animState.timeline, comparisonLabels]);
 
   // Persist custom scenarios
   useEffect(() => {
@@ -242,6 +303,9 @@ const App: React.FC = () => {
                   onNodeClick={setSelectedNodeId}
                   onNodeRightClick={handleNodeRightClick}
                   loadCounter={animState.loadCounter}
+                  diffHighlightNodes={diffHighlightNodes.size > 0 ? diffHighlightNodes : undefined}
+                  leftLabel={comparisonLabels?.left}
+                  rightLabel={comparisonLabels?.right}
                 />
 
                 {/* Hint for right-click */}
@@ -258,6 +322,15 @@ const App: React.FC = () => {
                   }}>
                     Right-click an active node to manipulate it
                   </div>
+                )}
+
+                {/* Quiz overlay */}
+                {quiz.state.quizEnabled && (
+                  <QuizPanel
+                    quizState={quiz.state}
+                    onSubmitAnswer={quiz.submitAnswer}
+                    onContinue={quiz.continuePlayback}
+                  />
                 )}
               </>
             )}
@@ -298,6 +371,11 @@ const App: React.FC = () => {
         onStepBackward={controls.stepBackward}
         onReset={controls.reset}
         onSpeedChange={controls.setSpeed}
+        quizEnabled={quiz.state.quizEnabled}
+        onToggleQuiz={handleToggleQuiz}
+        quizScore={quiz.state.score}
+        showCompare={!!activeScenarioId}
+        onCompare={handleCompare}
       />
 
       {/* Builder modal */}
@@ -306,6 +384,15 @@ const App: React.FC = () => {
           onClose={() => { setShowBuilder(false); setEditingScenarioId(null); }}
           onGenerate={handleBuilderGenerate}
           editingScenario={editingScenarioId ? customScenarios.find(s => s.scenario.id === editingScenarioId)?.scenario : undefined}
+        />
+      )}
+
+      {/* Comparison modal */}
+      {showComparison && animState.timeline && (
+        <ComparisonPanel
+          originalTimeline={animState.timeline}
+          onClose={() => setShowComparison(false)}
+          onGenerate={handleComparisonGenerate}
         />
       )}
 

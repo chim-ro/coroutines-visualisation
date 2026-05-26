@@ -1,5 +1,5 @@
 import { LayoutNode } from '../types';
-import { BORDER_COLOR, STATE_COLORS } from '../utils/colors';
+import { BORDER_COLOR } from '../utils/colors';
 
 const ARROW_SIZE = 6;
 const NODE_RADIUS = 24;

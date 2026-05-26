@@ -63,7 +63,7 @@ const TimelineCanvas: React.FC<TimelineCanvasProps> = ({
         {/* Gantt chart area */}
         <div style={{ position: 'relative', minHeight: columnHeight }}>
           {/* Lanes */}
-          {lanes.map((lane, laneIdx) => (
+          {lanes.map((lane) => (
             <div
               key={lane.threadName}
               style={{
@@ -103,7 +103,6 @@ const TimelineCanvas: React.FC<TimelineCanvasProps> = ({
                   const leftPct = (seg.startMs / totalDuration) * 100;
                   const widthPct = ((seg.endMs - seg.startMs) / totalDuration) * 100;
                   const isPast = seg.startMs <= currentTimeMs;
-                  const isPartial = seg.startMs <= currentTimeMs && seg.endMs > currentTimeMs;
                   const color = SEGMENT_COLORS[seg.state] ?? '#565f89';
 
                   return (

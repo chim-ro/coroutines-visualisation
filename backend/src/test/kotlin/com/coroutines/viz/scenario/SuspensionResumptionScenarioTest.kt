@@ -53,16 +53,29 @@ class SuspensionResumptionScenarioTest {
         // Tree: root → {fetcher, processor, logger}
         assertEquals(4, collectNodeIds(timeline.tree).size)
 
-        // Fetcher suspends before processor and logger start
         val stateChanges = timeline.events.filterIsInstance<StateChangeEvent>()
-        val fetcherSuspendIdx = stateChanges.indexOfFirst {
-            it.nodeId == "fetcher" && it.toState == JobState.Suspended
-        }
-        val processorStartIdx = stateChanges.indexOfFirst {
-            it.nodeId == "processor" && it.toState == JobState.Active
-        }
-        assertTrue(fetcherSuspendIdx < processorStartIdx,
-            "Fetcher must suspend before processor starts (cooperative scheduling)")
+        fun idx(nodeId: String, state: JobState) =
+            stateChanges.indexOfFirst { it.nodeId == nodeId && it.toState == state }
+
+        // All three launches create coroutines that reach Active BEFORE fetcher suspends
+        // (the Job state goes Active immediately on launch — only thread-time is staggered)
+        val fetcherActive = idx("fetcher", JobState.Active)
+        val processorActive = idx("processor", JobState.Active)
+        val loggerActive = idx("logger", JobState.Active)
+        val fetcherSuspend = idx("fetcher", JobState.Suspended)
+        assertTrue(fetcherActive < fetcherSuspend, "Fetcher must be Active before it can suspend")
+        assertTrue(processorActive < fetcherSuspend,
+            "Processor's Job must reach Active before fetcher suspends (all launches are immediate)")
+        assertTrue(loggerActive < fetcherSuspend,
+            "Logger's Job must reach Active before fetcher suspends (all launches are immediate)")
+
+        // Fetcher suspends before processor/logger get to do meaningful work (reach Completing)
+        val processorCompleting = idx("processor", JobState.Completing)
+        val loggerCompleting = idx("logger", JobState.Completing)
+        assertTrue(fetcherSuspend < processorCompleting,
+            "Fetcher must suspend before processor finishes (processor uses the freed thread)")
+        assertTrue(fetcherSuspend < loggerCompleting,
+            "Fetcher must suspend before logger finishes (logger uses the freed thread)")
 
         // All complete
         assertNodeReachesFinalState(timeline, "fetcher", JobState.Completed)

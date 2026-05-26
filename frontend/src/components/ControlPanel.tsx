@@ -12,7 +12,24 @@ interface Props {
   onStepBackward: () => void;
   onReset: () => void;
   onSpeedChange: (speed: number) => void;
+  quizEnabled?: boolean;
+  onToggleQuiz?: () => void;
+  quizScore?: { correct: number; total: number };
+  onCompare?: () => void;
+  showCompare?: boolean;
 }
+
+const kbdStyle: React.CSSProperties = {
+  fontSize: 9,
+  color: TEXT_DIM,
+  background: '#1a1b26',
+  border: `1px solid ${BORDER_COLOR}`,
+  borderRadius: 3,
+  padding: '1px 4px',
+  marginLeft: 4,
+  fontFamily: 'inherit',
+  verticalAlign: 'middle',
+};
 
 const btnStyle: React.CSSProperties = {
   background: 'transparent',
@@ -27,7 +44,8 @@ const btnStyle: React.CSSProperties = {
 
 export const ControlPanel: React.FC<Props> = ({
   isPlaying, currentEvent, totalEvents, speed,
-  onPlay, onPause, onStepForward, onStepBackward, onReset, onSpeedChange
+  onPlay, onPause, onStepForward, onStepBackward, onReset, onSpeedChange,
+  quizEnabled, onToggleQuiz, quizScore, onCompare, showCompare,
 }) => {
   return (
     <div style={{
@@ -39,15 +57,16 @@ export const ControlPanel: React.FC<Props> = ({
       padding: '0 16px',
       gap: 8,
     }}>
-      <button style={btnStyle} onClick={onReset} title="Reset">|&#9664; Reset</button>
-      <button style={btnStyle} onClick={onStepBackward} title="Step Back">&laquo; Back</button>
+      <button style={btnStyle} onClick={onReset} title="Reset (R)">|&#9664; Reset<kbd style={kbdStyle}>R</kbd></button>
+      <button style={btnStyle} onClick={onStepBackward} title="Step Back (←)">&laquo; Back<kbd style={kbdStyle}>←</kbd></button>
       <button
         style={{ ...btnStyle, background: ACCENT_COLOR + '22', borderColor: ACCENT_COLOR + '44', minWidth: 70 }}
         onClick={isPlaying ? onPause : onPlay}
+        title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
       >
-        {isPlaying ? '⏸ Pause' : '▶ Play'}
+        {isPlaying ? '⏸ Pause' : '▶ Play'}<kbd style={kbdStyle}>Space</kbd>
       </button>
-      <button style={btnStyle} onClick={onStepForward} title="Step Forward">Fwd &raquo;</button>
+      <button style={btnStyle} onClick={onStepForward} title="Step Forward (→)">Fwd &raquo;<kbd style={kbdStyle}>→</kbd></button>
 
       <div style={{ marginLeft: 16, display: 'flex', alignItems: 'center', gap: 8, color: TEXT_DIM, fontSize: 12 }}>
         <span>Speed:</span>
@@ -62,6 +81,37 @@ export const ControlPanel: React.FC<Props> = ({
         />
         <span style={{ minWidth: 36 }}>{speed}x</span>
       </div>
+
+      {onToggleQuiz && (
+        <button
+          style={{
+            ...btnStyle,
+            marginLeft: 16,
+            background: quizEnabled ? ACCENT_COLOR + '33' : 'transparent',
+            borderColor: quizEnabled ? ACCENT_COLOR : BORDER_COLOR,
+          }}
+          onClick={onToggleQuiz}
+          title="Toggle Quiz Mode"
+        >
+          {quizEnabled ? '🧠 Quiz On' : '🧠 Quiz'}
+          {quizEnabled && quizScore && quizScore.total > 0 && (
+            <span style={{ marginLeft: 6, fontSize: 11, color: ACCENT_COLOR }}>
+              {quizScore.correct}/{quizScore.total}
+            </span>
+          )}
+        </button>
+      )}
+
+      {showCompare && onCompare && (
+        <button
+          style={{ ...btnStyle, marginLeft: 8 }}
+          onClick={onCompare}
+          title="Compare scenarios"
+        >
+          Compare
+        </button>
+      )}
+
 
       <div style={{ marginLeft: 'auto', color: TEXT_DIM, fontSize: 12 }}>
         {currentEvent < 0 ? 0 : currentEvent + 1}/{totalEvents}

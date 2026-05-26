@@ -14,8 +14,8 @@ class CoroutineContextScenario : Scenario {
     override fun buildTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -38,18 +38,20 @@ class CoroutineContextScenario : Scenario {
                     displayName = "launch #3",
                     builder = BuilderType.Launch,
                     jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "orphan",
-                            displayName = "launch(Job())",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
+                    initialState = JobState.New
                 )
             )
+        )
+
+        // launch(Job()) is shown as a DETACHED tree — it is launched
+        // lexically inside launch #3, but its Job is a standalone Job(),
+        // so it is NOT structurally a child of any other coroutine.
+        val orphanTree = CoroutineNode(
+            id = "orphan",
+            displayName = "launch(Job()) — detached",
+            builder = BuilderType.Launch,
+            jobType = JobType.Job,
+            initialState = JobState.New
         )
 
         val events = listOf(
@@ -59,7 +61,7 @@ class CoroutineContextScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 100,
-                description = "runBlocking starts — its context includes Job, Dispatcher, and other default elements",
+                description = "coroutineScope starts — its context includes Job, Dispatcher, and other elements inherited from the caller",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -88,21 +90,21 @@ class CoroutineContextScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 1100,
-                description = "launch #3 starts normally as a child of runBlocking",
+                description = "launch #3 starts normally as a child of the scope",
                 nodeId = "child-broken",
                 fromState = JobState.New,
                 toState = JobState.Active
             ),
             StateChangeEvent(
                 delayMs = 1300,
-                description = "Nested launch(Job()) starts — passing a standalone Job() breaks the parent-child link!",
+                description = "launch(Job()) starts as a DETACHED coroutine — shown on the right because it is NOT a child of launch #3 (or any other coroutine in the tree)",
                 nodeId = "orphan",
                 fromState = JobState.New,
                 toState = JobState.Active
             ),
             NarrativeEvent(
                 delayMs = 1500,
-                description = "⚠️ DANGER: launch(Job()) uses a standalone Job that is NOT a child of the parent's Job. This breaks structured concurrency — the parent will NOT wait for this coroutine."
+                description = "⚠️ DANGER: launch(Job()) uses a standalone Job that is NOT a child of the parent's Job. The detached tree on the right shows this — the parent will NOT wait for this coroutine."
             ),
             StateChangeEvent(
                 delayMs = 1700,
@@ -152,14 +154,14 @@ class CoroutineContextScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 3100,
-                description = "runBlocking completes — it waited for children #1, #2, #3 but NOT for the orphaned coroutine",
+                description = "Scope completes — it waited for children #1, #2, #3 but NOT for the orphaned coroutine",
                 nodeId = "root",
                 fromState = JobState.Active,
                 toState = JobState.Completing
             ),
             StateChangeEvent(
                 delayMs = 3300,
-                description = "runBlocking fully completed",
+                description = "Scope fully completed",
                 nodeId = "root",
                 fromState = JobState.Completing,
                 toState = JobState.Completed
@@ -184,14 +186,14 @@ class CoroutineContextScenario : Scenario {
             ),
             NarrativeEvent(
                 delayMs = 4100,
-                description = "Key insight: Never pass Job() or SupervisorJob() directly to a builder. To use SupervisorJob, use supervisorScope { } instead, which properly maintains the parent-child hierarchy."
+                description = "Key insight: Never pass Job() or SupervisorJob() directly to a builder. The parallel antipattern launch(SupervisorJob()) ALSO breaks structured concurrency — it gives the new coroutine a standalone SupervisorJob as parent, so the surrounding scope doesn't wait for it OR cancel it. For supervisor semantics, use supervisorScope { } instead."
             )
         )
 
         val kotlinCode = """
             import kotlinx.coroutines.*
 
-            fun main() = runBlocking {
+            suspend fun main() = coroutineScope {
                 // launch #1 — inherits full parent context
                 launch {
                     println("Name: ${'$'}{coroutineContext[CoroutineName]}") // null
@@ -215,13 +217,14 @@ class CoroutineContextScenario : Scenario {
                     delay(200L)
                 } // completes without waiting for launch(Job())
 
-                println("runBlocking done") // orphan may still be running!
+                println("Scope done") // orphan may still be running!
             }
         """.trimIndent()
 
         return EventTimeline(
             scenarioName = info.name,
             tree = tree,
+            secondTree = orphanTree,
             events = events,
             kotlinCode = kotlinCode
         )
@@ -237,8 +240,8 @@ class CoroutineContextScenario : Scenario {
     private fun buildBeginnerTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -255,7 +258,7 @@ class CoroutineContextScenario : Scenario {
         val events = listOf(
             StateChangeEvent(
                 delayMs = 0,
-                description = "runBlocking starts — its context includes a Job, a Dispatcher, and other default elements",
+                description = "coroutineScope starts — its context includes a Job, a Dispatcher, and other elements inherited from the caller",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -291,14 +294,14 @@ class CoroutineContextScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 1400,
-                description = "runBlocking completes — it waited for its child thanks to context inheritance",
+                description = "Scope completes — it waited for its child thanks to context inheritance",
                 nodeId = "root",
                 fromState = JobState.Active,
                 toState = JobState.Completing
             ),
             StateChangeEvent(
                 delayMs = 1600,
-                description = "runBlocking fully completed",
+                description = "Scope fully completed",
                 nodeId = "root",
                 fromState = JobState.Completing,
                 toState = JobState.Completed
@@ -312,9 +315,9 @@ class CoroutineContextScenario : Scenario {
             kotlinCode = """
 import kotlinx.coroutines.*
 
-fun main() = runBlocking {
+suspend fun main() = coroutineScope {
     // Child inherits parent's context (Dispatcher, etc.)
-    // Its Job becomes a child of runBlocking's Job
+    // Its Job becomes a child of the scope's Job
     launch {
         println("Child context: ${'$'}coroutineContext")
         delay(100L)
@@ -328,8 +331,8 @@ fun main() = runBlocking {
     private fun buildAdvancedTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -359,24 +362,26 @@ fun main() = runBlocking {
                     displayName = "launch #4",
                     builder = BuilderType.Launch,
                     jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "orphan",
-                            displayName = "launch(Job())",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
+                    initialState = JobState.New
                 )
             )
+        )
+
+        // launch(Job()) is shown as a DETACHED tree — it is launched
+        // lexically inside launch #4, but its Job is a standalone Job(),
+        // so it is NOT structurally a child of any other coroutine.
+        val orphanTree = CoroutineNode(
+            id = "orphan",
+            displayName = "launch(Job()) — detached",
+            builder = BuilderType.Launch,
+            jobType = JobType.Job,
+            initialState = JobState.New
         )
 
         val events = listOf(
             StateChangeEvent(
                 delayMs = 0,
-                description = "runBlocking starts — its context: Job + BlockingEventLoop dispatcher + no CoroutineName",
+                description = "coroutineScope starts — its context: Job + inherited dispatcher + no CoroutineName",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -416,21 +421,21 @@ fun main() = runBlocking {
             ),
             StateChangeEvent(
                 delayMs = 1400,
-                description = "launch #4 starts normally as a child of runBlocking",
+                description = "launch #4 starts normally as a child of the scope",
                 nodeId = "child-broken",
                 fromState = JobState.New,
                 toState = JobState.Active
             ),
             StateChangeEvent(
                 delayMs = 1600,
-                description = "Nested launch(Job()) starts — passing a standalone Job() REPLACES the inherited Job, breaking the parent-child link!",
+                description = "launch(Job()) starts as a DETACHED coroutine (shown on the right) — its Job replaces the inherited one, so it is NOT a child of launch #4",
                 nodeId = "orphan",
                 fromState = JobState.New,
                 toState = JobState.Active
             ),
             NarrativeEvent(
                 delayMs = 1800,
-                description = "DANGER: launch(Job()) uses context + Job(), which replaces the inherited Job element. The new coroutine's Job is a child of the standalone Job() — NOT of launch #4's Job. Structured concurrency is broken."
+                description = "DANGER: launch(Job()) uses context + Job(), which replaces the inherited Job element. The new coroutine's Job is a child of the standalone Job() — NOT of launch #4's Job. The detached tree on the right reflects this — structured concurrency is broken."
             ),
             // Normal children complete
             StateChangeEvent(
@@ -493,14 +498,14 @@ fun main() = runBlocking {
             // Root completes
             StateChangeEvent(
                 delayMs = 3800,
-                description = "runBlocking completes — it waited for children #1-#4 but NOT for the orphaned coroutine",
+                description = "Scope completes — it waited for children #1-#4 but NOT for the orphaned coroutine",
                 nodeId = "root",
                 fromState = JobState.Active,
                 toState = JobState.Completing
             ),
             StateChangeEvent(
                 delayMs = 4000,
-                description = "runBlocking fully completed",
+                description = "Scope fully completed",
                 nodeId = "root",
                 fromState = JobState.Completing,
                 toState = JobState.Completed
@@ -526,18 +531,19 @@ fun main() = runBlocking {
             ),
             NarrativeEvent(
                 delayMs = 4800,
-                description = "Key takeaway: The + operator merges context elements — CoroutineName and Dispatchers are safe overrides. But Job() replaces the parent-child link, breaking structured concurrency. Use supervisorScope { } instead of SupervisorJob()."
+                description = "Key takeaway: The + operator merges context elements. CoroutineName and Dispatchers are safe overrides. Job() and SupervisorJob() are BOTH antipatterns when passed to a builder — they replace the inherited Job, detaching the new coroutine from structured concurrency. For supervisor semantics, use supervisorScope { } (which uses a SupervisorJob internally while preserving the parent-child link)."
             )
         )
 
         return EventTimeline(
             scenarioName = info.name,
             tree = tree,
+            secondTree = orphanTree,
             events = events,
             kotlinCode = """
 import kotlinx.coroutines.*
 
-fun main() = runBlocking { // context: Job + BlockingEventLoop
+suspend fun main() = coroutineScope { // inherits caller's context
     // #1 — inherits full parent context
     launch {
         println("Dispatcher: ${'$'}{coroutineContext[ContinuationInterceptor]}")
@@ -568,7 +574,7 @@ fun main() = runBlocking { // context: Job + BlockingEventLoop
         delay(200L)
     } // completes without waiting for launch(Job())
 
-    println("runBlocking done") // orphan may still be running!
+    println("Scope done") // orphan may still be running!
 }
             """.trimIndent()
         )

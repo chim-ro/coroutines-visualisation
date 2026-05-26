@@ -328,7 +328,7 @@ export function generateTimeline(root: BuilderNodeConfig, scenarioName: string):
     .sort((a, b) => b.depth - a.depth); // deepest first
 
   // Find the max delay so far
-  let maxDelay = events.reduce((max, e) => Math.max(max, e.delayMs), 0);
+  const maxDelay = events.reduce((max, e) => Math.max(max, e.delayMs), 0);
 
   let completeDelay = maxDelay + 600;
   for (const info of unaffectedNodes) {

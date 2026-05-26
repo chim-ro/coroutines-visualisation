@@ -53,7 +53,7 @@ class HappyPathScenario : Scenario {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "Starting runBlocking — creates a root coroutine"),
+            NarrativeEvent(0, "Starting runBlocking — creates a root coroutine. (In production code, prefer `suspend fun main() = coroutineScope { ... }`; runBlocking is mainly for samples and tests.)"),
             StateChangeEvent(100, "Root coroutine becomes Active", "root", JobState.New, JobState.Active),
             StateChangeEvent(300, "launch #1 starts", "child-1", JobState.New, JobState.Active),
             StateChangeEvent(400, "async #2 starts", "child-2", JobState.New, JobState.Active),

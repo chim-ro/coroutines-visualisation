@@ -4,7 +4,7 @@ import { CoroutineNode, LayoutNode } from '../types';
 import { layoutTree, flattenTree } from '../rendering/treeLayout';
 import { drawNode } from '../rendering/nodeRenderer';
 import { drawEdges } from '../rendering/edgeRenderer';
-import { BG_COLOR, BORDER_COLOR, ACCENT_COLOR } from '../utils/colors';
+import { BG_COLOR, BORDER_COLOR } from '../utils/colors';
 
 interface Props {
   root: BuilderNodeConfig;

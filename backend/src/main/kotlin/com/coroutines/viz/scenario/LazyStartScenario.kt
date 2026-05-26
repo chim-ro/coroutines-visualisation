@@ -1,0 +1,248 @@
+package com.coroutines.viz.scenario
+
+import com.coroutines.viz.event.*
+import com.coroutines.viz.model.*
+
+class LazyStartScenario : Scenario {
+    override val info = ScenarioInfo(
+        id = "lazy-start",
+        name = "Lazy Start",
+        description = "CoroutineStart.LAZY keeps a coroutine in the New state until something starts it. Compare eager vs lazy, see three ways to wake a lazy coroutine, and watch what happens when one is forgotten.",
+        category = "Basics"
+    )
+
+    override fun buildTimeline(): EventTimeline = buildIntermediateTimeline()
+
+    override fun buildTimeline(level: String): EventTimeline = when (level) {
+        "beginner" -> buildBeginnerTimeline()
+        "intermediate" -> buildIntermediateTimeline()
+        "advanced" -> buildAdvancedTimeline()
+        else -> throw IllegalArgumentException("Unknown level '$level'. Must be one of: beginner, intermediate, advanced")
+    }
+
+    private fun buildBeginnerTimeline(): EventTimeline {
+        val tree = CoroutineNode(
+            id = "root",
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
+            jobType = JobType.Job,
+            initialState = JobState.New,
+            children = listOf(
+                CoroutineNode(
+                    id = "eager",
+                    displayName = "launch (eager)",
+                    builder = BuilderType.Launch,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                ),
+                CoroutineNode(
+                    id = "lazy",
+                    displayName = "launch (LAZY)",
+                    builder = BuilderType.Launch,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                )
+            )
+        )
+
+        val events = listOf(
+            NarrativeEvent(0, "Two children: one eager (default), one lazy (CoroutineStart.LAZY). Watch their initial states diverge."),
+            StateChangeEvent(100, "Scope becomes Active", "root", JobState.New, JobState.Active),
+            StateChangeEvent(300, "Eager launch starts immediately — default CoroutineStart.DEFAULT", "eager", JobState.New, JobState.Active),
+            NarrativeEvent(500, "The lazy child was created by launch(start = CoroutineStart.LAZY) — its Job exists, but the body hasn't run. It stays in New."),
+            NarrativeEvent(1000, "Eager child is working. Lazy child is still waiting in New — nothing has started it yet."),
+            NarrativeEvent(1500, "Now we call lazyJob.start() — this is the trigger that transitions the lazy Job from New to Active."),
+            StateChangeEvent(1700, "Lazy launch starts after .start() call", "lazy", JobState.New, JobState.Active),
+            StateChangeEvent(2000, "Eager finishes its work", "eager", JobState.Active, JobState.Completing),
+            StateChangeEvent(2100, "Eager completed", "eager", JobState.Completing, JobState.Completed),
+            StateChangeEvent(2400, "Lazy finishes its work", "lazy", JobState.Active, JobState.Completing),
+            StateChangeEvent(2500, "Lazy completed", "lazy", JobState.Completing, JobState.Completed),
+            StateChangeEvent(2700, "Scope completing — both children done", "root", JobState.Active, JobState.Completing),
+            StateChangeEvent(2800, "Scope completed", "root", JobState.Completing, JobState.Completed),
+            NarrativeEvent(2900, "Key insight: lazy coroutines exist as a Job in New state but don't run until .start(), .join(), or (for async) .await() transitions them to Active.")
+        )
+
+        return EventTimeline(
+            scenarioName = info.name,
+            tree = tree,
+            events = events,
+            kotlinCode = """
+suspend fun main() = coroutineScope {
+    launch {                                     // eager — auto-starts
+        delay(200)
+        println("Eager done")
+    }
+
+    val lazyJob = launch(start = CoroutineStart.LAZY) {
+        delay(200)
+        println("Lazy done")
+    }
+
+    delay(500)
+    println("About to start the lazy one...")
+    lazyJob.start()                              // New → Active
+}
+            """.trimIndent()
+        )
+    }
+
+    private fun buildIntermediateTimeline(): EventTimeline {
+        val tree = CoroutineNode(
+            id = "root",
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
+            jobType = JobType.Job,
+            initialState = JobState.New,
+            children = listOf(
+                CoroutineNode(
+                    id = "by-start",
+                    displayName = "launch LAZY (.start)",
+                    builder = BuilderType.Launch,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                ),
+                CoroutineNode(
+                    id = "by-join",
+                    displayName = "launch LAZY (.join)",
+                    builder = BuilderType.Launch,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                ),
+                CoroutineNode(
+                    id = "by-await",
+                    displayName = "async LAZY (.await)",
+                    builder = BuilderType.Async,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                )
+            )
+        )
+
+        val events = listOf(
+            NarrativeEvent(0, "Three lazy children, each woken a different way: .start() (fire-and-forget), .join() (wait), .await() (wait + get value)."),
+            StateChangeEvent(100, "Scope becomes Active", "root", JobState.New, JobState.Active),
+            NarrativeEvent(300, "All three children were created with CoroutineStart.LAZY — all three Jobs are in New state."),
+            NarrativeEvent(700, "Calling .start() on the first lazy Job — transitions it to Active and returns immediately."),
+            StateChangeEvent(900, "by-start: New → Active (.start triggered it)", "by-start", JobState.New, JobState.Active),
+            NarrativeEvent(1100, "Calling .join() on the second lazy Job — auto-starts it AND suspends the caller until it completes."),
+            StateChangeEvent(1300, "by-join: New → Active (.join started it)", "by-join", JobState.New, JobState.Active),
+            NarrativeEvent(1500, "Calling .await() on the lazy Deferred — auto-starts it AND suspends the caller until the value is ready."),
+            StateChangeEvent(1700, "by-await: New → Active (.await started it)", "by-await", JobState.New, JobState.Active),
+            NarrativeEvent(2000, "All three are now running. .start() returned immediately; .join() and .await() are still suspended waiting."),
+            StateChangeEvent(2300, "by-start completing", "by-start", JobState.Active, JobState.Completing),
+            StateChangeEvent(2400, "by-start completed", "by-start", JobState.Completing, JobState.Completed),
+            StateChangeEvent(2600, "by-join completing", "by-join", JobState.Active, JobState.Completing),
+            StateChangeEvent(2700, "by-join completed — .join() now returns", "by-join", JobState.Completing, JobState.Completed),
+            StateChangeEvent(2900, "by-await completing", "by-await", JobState.Active, JobState.Completing),
+            StateChangeEvent(3000, "by-await completed — .await() returns the value", "by-await", JobState.Completing, JobState.Completed),
+            StateChangeEvent(3200, "Scope completing", "root", JobState.Active, JobState.Completing),
+            StateChangeEvent(3300, "Scope completed", "root", JobState.Completing, JobState.Completed),
+            NarrativeEvent(3500, "Summary: .start() fires the coroutine and returns. .join() / .await() also fire it but suspend the caller until done. All three transition New → Active.")
+        )
+
+        return EventTimeline(
+            scenarioName = info.name,
+            tree = tree,
+            events = events,
+            kotlinCode = """
+suspend fun main() = coroutineScope {
+    val job1 = launch(start = CoroutineStart.LAZY) {
+        delay(200)
+        println("by .start() done")
+    }
+
+    val job2 = launch(start = CoroutineStart.LAZY) {
+        delay(200)
+        println("by .join() done")
+    }
+
+    val deferred = async(start = CoroutineStart.LAZY) {
+        delay(200)
+        "by .await() value"
+    }
+
+    delay(300)
+    job1.start()                  // fire-and-forget
+    delay(100)
+    job2.join()                   // start AND wait
+    delay(100)
+    val v = deferred.await()      // start AND wait for value
+    println(v)
+}
+            """.trimIndent()
+        )
+    }
+
+    private fun buildAdvancedTimeline(): EventTimeline {
+        val tree = CoroutineNode(
+            id = "root",
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
+            jobType = JobType.Job,
+            initialState = JobState.New,
+            children = listOf(
+                CoroutineNode(
+                    id = "lazy-started",
+                    displayName = "launch LAZY #1 (.start)",
+                    builder = BuilderType.Launch,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                ),
+                CoroutineNode(
+                    id = "lazy-forgotten",
+                    displayName = "launch LAZY #2 (FORGOTTEN)",
+                    builder = BuilderType.Launch,
+                    jobType = JobType.Job,
+                    initialState = JobState.New
+                )
+            )
+        )
+
+        val events = listOf(
+            NarrativeEvent(0, "The 'forgotten lazy' trap: two lazy children, but only one ever gets .start() called on it. What happens to the scope?"),
+            StateChangeEvent(100, "Scope becomes Active", "root", JobState.New, JobState.Active),
+            NarrativeEvent(300, "Both children are in New (lazy). The scope's body launches them and then tries to finish."),
+            NarrativeEvent(700, "We call .start() on #1 — it transitions to Active."),
+            StateChangeEvent(900, "Lazy #1: New → Active (.start)", "lazy-started", JobState.New, JobState.Active),
+            StateChangeEvent(1300, "Lazy #1 completing", "lazy-started", JobState.Active, JobState.Completing),
+            StateChangeEvent(1400, "Lazy #1 completed", "lazy-started", JobState.Completing, JobState.Completed),
+            NarrativeEvent(1600, "Scope's body has finished. But #2 is STILL in New — nobody started it. The scope waits for ALL children, so this is a deadlock."),
+            NarrativeEvent(2200, "...the scope is hanging. In real code this is a leaked coroutine that prevents the program from terminating."),
+            NarrativeEvent(2800, "Recovery: explicitly cancel the forgotten Job. Cancelling a Job in New goes directly to Cancelled (no body to interrupt)."),
+            CancellationEvent(3000, "Explicit cancel() on the forgotten lazy Job", "root", "lazy-forgotten"),
+            StateChangeEvent(3100, "Lazy #2: New → Cancelled (cancel on a New job is immediate)", "lazy-forgotten", JobState.New, JobState.Cancelled),
+            NarrativeEvent(3300, "Now all children are in terminal states — the scope can complete."),
+            StateChangeEvent(3500, "Scope completing", "root", JobState.Active, JobState.Completing),
+            StateChangeEvent(3600, "Scope completed", "root", JobState.Completing, JobState.Completed),
+            NarrativeEvent(3800, "Lesson: a lazy Job is part of structured concurrency — its parent waits for it. If you create one, you MUST eventually .start() it, .cancel() it, or use a try/finally to guarantee it. Forgetting silently deadlocks the scope.")
+        )
+
+        return EventTimeline(
+            scenarioName = info.name,
+            tree = tree,
+            events = events,
+            kotlinCode = """
+suspend fun main() = coroutineScope {
+    val lazy1 = launch(start = CoroutineStart.LAZY) {
+        delay(200)
+        println("Lazy #1 done")
+    }
+
+    val lazy2 = launch(start = CoroutineStart.LAZY) {
+        delay(200)
+        println("Lazy #2 done") // never reached
+    }
+
+    delay(300)
+    lazy1.start()
+    lazy1.join()
+
+    // Whoops — lazy2 was never started.
+    // Without the line below, this scope would hang forever
+    // waiting for lazy2 (which is still a child in New state).
+    lazy2.cancel()  // New → Cancelled, immediate
+}
+            """.trimIndent()
+        )
+    }
+}

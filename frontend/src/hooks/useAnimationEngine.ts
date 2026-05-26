@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { EventTimeline, SimulationEvent, StateChangeEvent, CancellationEvent, ExceptionEvent, LayoutNode, JobState } from '../types';
 import { NodeAnimation } from '../rendering/nodeRenderer';
 import { WaveAnimation } from '../rendering/waveRenderer';
-import { layoutTree, flattenTree } from '../rendering/treeLayout';
+import { layoutTree } from '../rendering/treeLayout';
 
 export interface AnimationState {
   layoutRoot: LayoutNode | null;
@@ -21,6 +21,8 @@ export interface AnimationState {
   loadCounter: number;
 }
 
+export type OnBeforeEventCallback = (event: SimulationEvent, index: number) => boolean;
+
 export interface AnimationControls {
   play: () => void;
   pause: () => void;
@@ -32,6 +34,7 @@ export interface AnimationControls {
   injectEvents: (events: SimulationEvent[]) => void;
   getNodeStates: () => Map<string, JobState>;
   getTimeline: () => EventTimeline | null;
+  setOnBeforeEvent: (cb: OnBeforeEventCallback | null) => void;
 }
 
 const FLASH_DURATION = 600;
@@ -52,11 +55,12 @@ export function useAnimationEngine(): [AnimationState, AnimationControls] {
   const [loadCounter, setLoadCounter] = useState(0);
 
   const playTimeoutRef = useRef<number | null>(null);
-  const animFrameRef = useRef<number | null>(null);
+  const onBeforeEventRef = useRef<OnBeforeEventCallback | null>(null);
 
   const initFromTimeline = useCallback((tl: EventTimeline) => {
     const states = new Map<string, JobState>();
-    const collectStates = (node: { id: string; initialState: JobState; children: any[] }) => {
+    type StateNode = { id: string; initialState: JobState; children: StateNode[] };
+    const collectStates = (node: StateNode) => {
       states.set(node.id, node.initialState);
       node.children.forEach(collectStates);
     };
@@ -128,7 +132,8 @@ export function useAnimationEngine(): [AnimationState, AnimationControls] {
 
   const applyEventsUpTo = useCallback((targetIndex: number, tl: EventTimeline) => {
     const states = new Map<string, JobState>();
-    const collectStates = (node: { id: string; initialState: JobState; children: any[] }) => {
+    type StateNode = { id: string; initialState: JobState; children: StateNode[] };
+    const collectStates = (node: StateNode) => {
       states.set(node.id, node.initialState);
       node.children.forEach(collectStates);
     };
@@ -167,7 +172,15 @@ export function useAnimationEngine(): [AnimationState, AnimationControls] {
     const waitMs = (nextDelay - currentDelay) / speed;
 
     playTimeoutRef.current = window.setTimeout(() => {
-      applyEvent(timeline.events[nextIndex], nextIndex);
+      const nextEvent = timeline.events[nextIndex];
+      if (onBeforeEventRef.current) {
+        const proceed = onBeforeEventRef.current(nextEvent, nextIndex);
+        if (!proceed) {
+          setIsPlaying(false);
+          return;
+        }
+      }
+      applyEvent(nextEvent, nextIndex);
     }, Math.max(waitMs, 50));
 
     return () => {
@@ -299,6 +312,9 @@ export function useAnimationEngine(): [AnimationState, AnimationControls] {
     },
     getNodeStates: () => new Map(nodeStatesRef.current),
     getTimeline: () => timelineRef.current,
+    setOnBeforeEvent: (cb: OnBeforeEventCallback | null) => {
+      onBeforeEventRef.current = cb;
+    },
   };
 
   const currentTimeMs = timeline && currentEventIndex >= 0 && currentEventIndex < timeline.events.length

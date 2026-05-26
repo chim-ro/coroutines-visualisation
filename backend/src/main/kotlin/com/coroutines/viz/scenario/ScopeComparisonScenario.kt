@@ -60,9 +60,9 @@ class ScopeComparisonScenario : Scenario {
             StateChangeEvent(1150, "SS: launch #2 cancelled", "ss-child-2", JobState.Cancelling, JobState.Cancelled),
             // Exceptions propagate
             ExceptionEvent(1300, "CS: exception propagates to coroutineScope", "cs-child-2", "cs-root", "RuntimeException"),
-            ExceptionEvent(1350, "SS: exception propagates to supervisorScope", "ss-child-2", "ss-root", "RuntimeException"),
+            NarrativeEvent(1350, "SS: exception goes to the CoroutineExceptionHandler — NOT propagated to the supervisor"),
             // coroutineScope cancels siblings
-            NarrativeEvent(1500, "coroutineScope cancels all siblings — supervisorScope does NOT"),
+            NarrativeEvent(1500, "coroutineScope cancels all siblings — supervisorScope's handler just logs and moves on"),
             StateChangeEvent(1600, "CS: scope enters Cancelling", "cs-root", JobState.Active, JobState.Cancelling),
             CancellationEvent(1700, "CS: cancelling launch #1", "cs-root", "cs-child-1"),
             StateChangeEvent(1800, "CS: launch #1 cancelling", "cs-child-1", JobState.Active, JobState.Cancelling),
@@ -157,9 +157,9 @@ supervisorScope {
             StateChangeEvent(1150, "SS: launch #2 cancelled", "ss-child-2", JobState.Cancelling, JobState.Cancelled),
             // Exceptions propagate
             ExceptionEvent(1300, "CS: exception propagates to coroutineScope", "cs-child-2", "cs-root", "RuntimeException"),
-            ExceptionEvent(1350, "SS: exception propagates to supervisorScope", "ss-child-2", "ss-root", "RuntimeException"),
+            NarrativeEvent(1350, "SS: exception goes to the CoroutineExceptionHandler — NOT propagated to the supervisor"),
             // coroutineScope cancels sibling
-            NarrativeEvent(1500, "coroutineScope cancels sibling — supervisorScope does NOT"),
+            NarrativeEvent(1500, "coroutineScope cancels sibling — supervisorScope's handler just logs and moves on"),
             StateChangeEvent(1600, "CS: scope enters Cancelling", "cs-root", JobState.Active, JobState.Cancelling),
             CancellationEvent(1700, "CS: cancelling launch #1", "cs-root", "cs-child-1"),
             StateChangeEvent(1800, "CS: launch #1 cancelling", "cs-child-1", JobState.Active, JobState.Cancelling),
@@ -261,7 +261,7 @@ supervisorScope {
             StateChangeEvent(1350, "SS: launch #2 cancelled", "ss-child-2", JobState.Cancelling, JobState.Cancelled),
             // Exceptions propagate
             ExceptionEvent(1500, "CS: exception propagates to coroutineScope", "cs-child-2", "cs-root", "RuntimeException"),
-            ExceptionEvent(1550, "SS: exception propagates to supervisorScope", "ss-child-2", "ss-root", "RuntimeException"),
+            NarrativeEvent(1550, "SS: exception goes to the CoroutineExceptionHandler — NOT propagated to the supervisor"),
             // coroutineScope cancels EVERYTHING — siblings and their children
             NarrativeEvent(1700, "coroutineScope cancels the entire tree — including grandchildren!"),
             StateChangeEvent(1800, "CS: scope enters Cancelling", "cs-root", JobState.Active, JobState.Cancelling),

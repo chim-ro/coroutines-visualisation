@@ -188,6 +188,7 @@ object TimelineTestHelper {
     fun assertValidStateTransitions(timeline: EventTimeline) {
         val validTransitions = setOf(
             JobState.New to JobState.Active,
+            JobState.New to JobState.Cancelled, // lazy coroutine cancelled before being started
             JobState.Active to JobState.Completing,
             JobState.Active to JobState.Cancelling,
             JobState.Active to JobState.Suspended,

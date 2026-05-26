@@ -5,7 +5,7 @@ import { BuilderTreePreview } from './BuilderTreePreview';
 import { BuilderNodeConfig, CustomScenario } from './types';
 import { generateTimeline } from './timelineGenerator';
 import { EventTimeline } from '../types';
-import { SURFACE_COLOR, BORDER_COLOR, BG_COLOR, TEXT_COLOR, TEXT_DIM, ACCENT_COLOR } from '../utils/colors';
+import { BORDER_COLOR, BG_COLOR, TEXT_COLOR, TEXT_DIM, ACCENT_COLOR } from '../utils/colors';
 
 interface Props {
   onClose: () => void;

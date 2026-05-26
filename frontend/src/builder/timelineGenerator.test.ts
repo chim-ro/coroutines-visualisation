@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateTimeline } from './timelineGenerator';
 import { BuilderNodeConfig } from './types';
-import { StateChangeEvent, ExceptionEvent, CancellationEvent, SimulationEvent, EventTimeline } from '../types';
+import { StateChangeEvent, ExceptionEvent, CancellationEvent, EventTimeline } from '../types';
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -26,7 +26,8 @@ function finalState(timeline: EventTimeline, nodeId: string): string {
   return changes[changes.length - 1].toState;
 }
 
-function collectNodeIds(tree: { id: string; children: { id: string; children: any[] }[] }): string[] {
+type IdTree = { id: string; children: IdTree[] };
+function collectNodeIds(tree: IdTree): string[] {
   const ids: string[] = [tree.id];
   for (const child of tree.children) {
     ids.push(...collectNodeIds(child));

@@ -64,10 +64,13 @@ class NestedScopesScenarioTest {
         assertNodeReachesFinalState(timeline, "branch-a", JobState.Completed)
         assertNodeReachesFinalState(timeline, "branch-c", JobState.Completed)
 
-        // Exception chain: b1 → branch-b → supervisor
+        // Exception from b1 propagates UP to branch-b (b1 is a normal launch child of branch-b's Job).
+        // But branch-b is a direct launch child of supervisorScope, so its exception goes to the
+        // CoroutineExceptionHandler — NOT to the supervisor.
         val exceptions = timeline.events.filterIsInstance<ExceptionEvent>()
         assertTrue(exceptions.any { it.sourceNodeId == "b1" && it.targetNodeId == "branch-b" })
-        assertTrue(exceptions.any { it.sourceNodeId == "branch-b" && it.targetNodeId == "supervisor" })
+        assertTrue(exceptions.none { it.targetNodeId == "supervisor" },
+            "Exception from a launch child of supervisorScope must not propagate to the supervisor")
 
         assertAllNodesHaveEvents(timeline)
     }

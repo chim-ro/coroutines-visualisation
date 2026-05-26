@@ -26,7 +26,7 @@ Coroutines Visualization/
 │       ├── App.tsx                    # Root layout: sidebar + canvas + controls
 │       ├── types/                     # TypeScript types matching Kotlin models
 │       ├── api/                       # Fetch layer for backend API
-│       ├── hooks/                     # useAnimationEngine, useBuilderState
+│       ├── hooks/                     # useAnimationEngine, useBuilderState, useKeyboardShortcuts, useQuizMode
 │       ├── components/                # TreeCanvas, ScenarioPanel, ControlPanel, NodeContextMenu, etc.
 │       ├── builder/                   # Custom scenario builder (panel, forms, preview, timeline generator)
 │       ├── manipulation/              # Live node manipulation (event injector)
@@ -96,8 +96,11 @@ Coroutines Visualization/
 - **Active node breathing**: Subtle glow animation on Active nodes
 - **Cancelling node flicker**: Flickering opacity on Cancelling nodes
 - **Playback controls**: Play/Pause/Step Forward/Step Backward/Reset with speed slider (0.25x–4x)
+- **Keyboard shortcuts**: Space (play/pause), ←/→ (step back/forward), R (reset), 1–5 (speed presets: 0.25x/0.5x/1x/1.5x/2x)
 - **Interactive canvas**: Click nodes to see details, drag to pan, scroll to zoom
 - **Side-by-side comparison**: Scope Comparison scenario shows two trees side by side
+- **"What If" comparison mode**: Duplicate any scenario, modify the copy (change Job type, add/remove failures), and play both trees side by side with divergent nodes highlighted
+- **Quiz/prediction mode**: Pause before each significant event and predict what happens next from multiple-choice options, with score tracking
 - **Custom scenario builder**: Create your own coroutine trees with configurable failures
 - **Live node manipulation**: Right-click active nodes during playback to cancel, inject exceptions, or force-complete
 
@@ -163,6 +166,66 @@ During playback, you can interact with active nodes in real time:
 
 A hint ("Right-click an active node to manipulate it") appears at the bottom-right of the canvas during playback.
 
+## Keyboard Shortcuts
+
+All shortcuts are disabled when focus is inside an input field or text area.
+
+| Key | Action |
+|-----|--------|
+| `Space` | Play / Pause |
+| `←` | Step Backward |
+| `→` | Step Forward |
+| `R` | Reset |
+| `1` | Speed 0.25x |
+| `2` | Speed 0.5x |
+| `3` | Speed 1x |
+| `4` | Speed 1.5x |
+| `5` | Speed 2x |
+
+Shortcut hints are shown next to each control panel button.
+
+## Quiz / Prediction Mode
+
+Quiz mode turns passive watching into active learning by testing your understanding of structured concurrency.
+
+### How to use
+
+1. Click the **"Quiz"** button in the bottom control bar to enable quiz mode.
+2. Press **Play** — playback pauses before each significant event (state changes, cancellations, exceptions).
+3. A panel appears over the canvas with the question **"What happens next?"** and 3–4 multiple-choice options.
+4. Select an answer:
+   - **Correct** answers highlight in green.
+   - **Incorrect** answers highlight in red, and the correct answer is revealed.
+5. Click **"Continue →"** (or press Enter) to resume playback to the next event.
+6. Your running score is shown in the control bar (e.g. "3/5").
+7. Click the Quiz button again to disable quiz mode and resume normal playback.
+
+### How distractors are generated
+
+- **Wrong state, same node**: e.g. "child-1 enters Completing" instead of "child-1 enters Cancelling"
+- **Wrong node, same action**: e.g. "child-2 becomes Active" instead of "child-1 becomes Active"
+- **Wrong propagation direction**: e.g. exception going the wrong way between parent and child
+
+## "What If" Comparison Mode
+
+Compare two variants of the same scenario side by side to explore how structural changes affect behavior.
+
+### How to use
+
+1. Load any scenario (built-in or custom).
+2. Click the **"Compare"** button in the bottom control bar.
+3. A modal opens with two columns:
+   - **Left** — The base scenario tree (read-only).
+   - **Right** — An editable copy of the tree.
+4. Modify the right tree:
+   - Select a node by clicking it in the tree preview.
+   - Use **quick-action buttons**: "SupervisorJob" (change job type), "+ Failure" (add an exception), "- Failure" (remove an exception).
+   - Or edit node properties directly in the forms below.
+5. Click **"Compare & Play"** — both trees animate simultaneously with events interleaved.
+6. After playback finishes, nodes that ended in **different states** between the two trees are highlighted with an **orange dashed border**.
+
+This is useful for answering questions like "What changes if I use SupervisorJob here?" or "What happens if this child doesn't fail?"
+
 ## Verification
 
 1. Start backend: `cd backend && ./gradlew run`
@@ -178,3 +241,6 @@ A hint ("Right-click an active node to manipulate it") appears at the bottom-rig
 11. Right-click an Active node during playback — try Cancel, Inject Exception, and Force Complete
 12. Use Step Backward after a live manipulation to verify correct state reconstruction
 13. Refresh the page — custom scenarios should still appear in the sidebar
+14. Test keyboard shortcuts: press Space to play/pause, ←/→ to step, R to reset, 1–5 for speed presets. Open the scenario builder and verify shortcuts don't fire while typing in inputs
+15. Toggle Quiz mode on, play a scenario — verify it pauses before each event with multiple-choice options. Answer a few, check score tracking. Toggle off to resume normal playback
+16. Click Compare with a scenario loaded — modify the right tree (e.g. change Job to SupervisorJob), click "Compare & Play". Verify both trees animate and divergent nodes get orange borders after playback

@@ -44,20 +44,21 @@ class SuspensionResumptionScenario : Scenario {
         )
 
         val events = listOf(
-            // Phase 1: Setup
-            NarrativeEvent(0, "All three coroutines share a single thread (main). Let's see how suspension enables concurrency."),
+            // Phase 1: Setup — all three launches create coroutines, all go Active immediately
+            NarrativeEvent(0, "All three coroutines share a single thread. Note: this single-thread behavior is specific to runBlocking's confined dispatcher — on Dispatchers.Default the same coroutines would run in parallel across CPU cores."),
             StateChangeEvent(200, "Root coroutine becomes Active", "root", JobState.New, JobState.Active),
-            StateChangeEvent(600, "Fetcher starts — it will call a suspending network function", "fetcher", JobState.New, JobState.Active),
+            StateChangeEvent(500, "Fetcher launched — Job state becomes Active", "fetcher", JobState.New, JobState.Active),
+            StateChangeEvent(600, "Processor launched — Job state becomes Active", "processor", JobState.New, JobState.Active),
+            StateChangeEvent(700, "Logger launched — Job state becomes Active", "logger", JobState.New, JobState.Active),
+            NarrativeEvent(900, "All three are Active, but runBlocking's dispatcher runs only one body at a time on its single thread. Fetcher's body runs first."),
 
             // Phase 2: Fetcher suspends
             NarrativeEvent(1200, "Fetcher calls delay(1000) — simulating a network request. The coroutine SUSPENDS."),
             StateChangeEvent(1400, "Fetcher suspends — the thread is now FREE", "fetcher", JobState.Active, JobState.Suspended),
             NarrativeEvent(1600, "Key insight: the thread is not blocked! It's released back to the dispatcher."),
 
-            // Phase 3: Other coroutines run on the freed thread
-            NarrativeEvent(2000, "With the thread free, the dispatcher can run other coroutines."),
-            StateChangeEvent(2200, "Processor gets the thread and starts running", "processor", JobState.New, JobState.Active),
-            StateChangeEvent(2800, "Logger also gets a turn on the thread", "logger", JobState.New, JobState.Active),
+            // Phase 3: Other coroutines (already Active) get thread time
+            NarrativeEvent(2000, "With the thread free, the dispatcher runs the next ready coroutine. Processor and Logger were already Active — now they get to execute."),
             NarrativeEvent(3200, "Processor and Logger are doing real work while Fetcher sleeps."),
 
             // Phase 4: Other coroutines complete their work
@@ -207,23 +208,24 @@ fun main() = runBlocking {
             )
 
             val events = listOf(
-                // Phase 1: All coroutines start
+                // Phase 1: All four launches create coroutines, all go Active immediately
                 NarrativeEvent(0, "Four coroutines share a single thread. Multiple suspend/resume cycles show true cooperative multitasking."),
                 StateChangeEvent(200, "Root coroutine becomes Active", "root", JobState.New, JobState.Active),
-                StateChangeEvent(500, "Fetcher starts — will make two network calls", "fetcher", JobState.New, JobState.Active),
-                StateChangeEvent(800, "Processor starts", "processor", JobState.New, JobState.Active),
-                StateChangeEvent(1100, "Logger starts", "logger", JobState.New, JobState.Active),
-                StateChangeEvent(1400, "Cache async starts — will return a Deferred result", "cache", JobState.New, JobState.Active),
+                StateChangeEvent(400, "Fetcher launched — Job state becomes Active", "fetcher", JobState.New, JobState.Active),
+                StateChangeEvent(500, "Processor launched — Job state becomes Active", "processor", JobState.New, JobState.Active),
+                StateChangeEvent(600, "Logger launched — Job state becomes Active", "logger", JobState.New, JobState.Active),
+                StateChangeEvent(700, "Cache async launched — Job state becomes Active", "cache", JobState.New, JobState.Active),
+                NarrativeEvent(1000, "All four are Active, but only one body runs at a time. The dispatcher starts with Fetcher."),
 
                 // Phase 2: Fetcher suspends (first time)
                 NarrativeEvent(1800, "Fetcher hits its first delay() — first network call. Thread is released."),
                 StateChangeEvent(2000, "Fetcher suspends on first network call", "fetcher", JobState.Active, JobState.Suspended),
 
                 // Phase 3: Processor runs then suspends
-                NarrativeEvent(2400, "With fetcher suspended, processor gets the thread and does work."),
+                NarrativeEvent(2400, "With fetcher suspended, processor gets thread time and does its work."),
                 StateChangeEvent(2800, "Processor suspends while waiting for data", "processor", JobState.Active, JobState.Suspended),
 
-                // Phase 4: Logger runs, cache runs
+                // Phase 4: Logger runs, cache runs (both already Active, just getting thread time)
                 NarrativeEvent(3200, "Thread bounces to logger, then cache — cooperative scheduling in action."),
                 NarrativeEvent(3400, "Logger writes first batch of logs"),
                 NarrativeEvent(3800, "Cache computes and stores result"),

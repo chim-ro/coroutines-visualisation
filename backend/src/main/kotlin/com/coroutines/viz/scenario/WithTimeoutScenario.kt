@@ -21,8 +21,8 @@ class WithTimeoutScenario : Scenario {
     private fun buildBeginnerTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -52,7 +52,7 @@ class WithTimeoutScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 100,
-                description = "runBlocking starts execution",
+                description = "coroutineScope starts execution",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -115,28 +115,32 @@ class WithTimeoutScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 2300,
-                description = "runBlocking completes normally — the timeout exception doesn't propagate past withTimeout",
+                description = "Scope continues — the surrounding try/catch absorbed TimeoutCancellationException (without it, the exception would propagate up to the scope's caller)",
                 nodeId = "root",
                 fromState = JobState.Active,
                 toState = JobState.Completing
             ),
             StateChangeEvent(
                 delayMs = 2500,
-                description = "runBlocking fully completed",
+                description = "Scope fully completed",
                 nodeId = "root",
                 fromState = JobState.Completing,
                 toState = JobState.Completed
             ),
             NarrativeEvent(
                 delayMs = 2700,
-                description = "Key takeaway: withTimeout cancels children that exceed the time limit by throwing TimeoutCancellationException."
+                description = "Key takeaway: withTimeout cancels children that exceed the time limit by throwing TimeoutCancellationException — a subtype of CancellationException."
+            ),
+            NarrativeEvent(
+                delayMs = 2900,
+                description = "Safer alternative: withTimeoutOrNull(500L) { ... } returns null instead of throwing, so no try/catch is needed for the common 'maybe-timed-out' case."
             )
         )
 
         val kotlinCode = """
             import kotlinx.coroutines.*
 
-            fun main() = runBlocking {
+            suspend fun main() = coroutineScope {
                 try {
                     withTimeout(500L) {
                         launch {
@@ -149,6 +153,13 @@ class WithTimeoutScenario : Scenario {
                     println("Timed out!")
                 }
                 println("Program continues after timeout")
+
+                // Safer alternative — no try/catch needed:
+                val result = withTimeoutOrNull(500L) {
+                    delay(1000L)
+                    "result"
+                }
+                println(result) // null
             }
         """.trimIndent()
 
@@ -163,8 +174,8 @@ class WithTimeoutScenario : Scenario {
     private fun buildAdvancedTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -226,7 +237,7 @@ class WithTimeoutScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 100,
-                description = "runBlocking starts execution",
+                description = "coroutineScope starts execution",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -383,28 +394,28 @@ class WithTimeoutScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 3700,
-                description = "runBlocking completes normally — timeout exceptions don't propagate past the withTimeout boundary",
+                description = "Scope continues — the outer try/catch absorbed TimeoutCancellationException from the outer withTimeout",
                 nodeId = "root",
                 fromState = JobState.Active,
                 toState = JobState.Completing
             ),
             StateChangeEvent(
                 delayMs = 3850,
-                description = "runBlocking fully completed",
+                description = "Scope fully completed",
                 nodeId = "root",
                 fromState = JobState.Completing,
                 toState = JobState.Completed
             ),
             NarrativeEvent(
                 delayMs = 4000,
-                description = "Key insights: Nested withTimeout scopes have independent clocks. The inner timeout fires first without affecting siblings. The outer timeout later cancels remaining children. TimeoutCancellationException stays within its withTimeout boundary."
+                description = "Key insights: Nested withTimeout scopes have independent clocks. The inner timeout fires first without affecting siblings. The outer timeout later cancels remaining children. TimeoutCancellationException is re-thrown by each withTimeout — you must catch it (or use withTimeoutOrNull) for the surrounding code to continue."
             )
         )
 
         val kotlinCode = """
             import kotlinx.coroutines.*
 
-            fun main() = runBlocking {
+            suspend fun main() = coroutineScope {
                 try {
                     withTimeout(1000L) {
                         // Fast child — completes well within the deadline
@@ -458,8 +469,8 @@ class WithTimeoutScenario : Scenario {
     override fun buildTimeline(): EventTimeline {
         val tree = CoroutineNode(
             id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
+            displayName = "coroutineScope",
+            builder = BuilderType.CoroutineScope,
             jobType = JobType.Job,
             initialState = JobState.New,
             children = listOf(
@@ -496,7 +507,7 @@ class WithTimeoutScenario : Scenario {
             ),
             StateChangeEvent(
                 delayMs = 100,
-                description = "runBlocking starts execution",
+                description = "coroutineScope starts execution",
                 nodeId = "root",
                 fromState = JobState.New,
                 toState = JobState.Active
@@ -580,18 +591,18 @@ class WithTimeoutScenario : Scenario {
             ),
             NarrativeEvent(
                 delayMs = 2800,
-                description = "The TimeoutCancellationException is a CancellationException subclass, so it cancels the scope but does NOT crash the parent."
+                description = "TimeoutCancellationException is a CancellationException subclass — but withTimeout re-throws it to its caller. Without a try/catch, it would propagate up."
             ),
             StateChangeEvent(
                 delayMs = 3000,
-                description = "runBlocking completes normally — TimeoutCancellationException doesn't propagate past the withTimeout boundary",
+                description = "Scope continues — the surrounding try/catch absorbed TimeoutCancellationException",
                 nodeId = "root",
                 fromState = JobState.Active,
                 toState = JobState.Completing
             ),
             StateChangeEvent(
                 delayMs = 3200,
-                description = "runBlocking fully completed",
+                description = "Scope fully completed",
                 nodeId = "root",
                 fromState = JobState.Completing,
                 toState = JobState.Completed
@@ -605,7 +616,7 @@ class WithTimeoutScenario : Scenario {
         val kotlinCode = """
             import kotlinx.coroutines.*
 
-            fun main() = runBlocking {
+            suspend fun main() = coroutineScope {
                 try {
                     withTimeout(1000L) {
                         // launch (slow) — takes too long
@@ -627,7 +638,7 @@ class WithTimeoutScenario : Scenario {
                     println("Timed out!")
                 }
 
-                println("runBlocking continues after timeout")
+                println("Scope continues after timeout")
             }
         """.trimIndent()
 
