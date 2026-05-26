@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { LayoutNode } from '../types';
-import { drawNode, hitTestNode, NodeAnimation } from '../rendering/nodeRenderer';
+import {
+  drawNode, hitTestNode, NodeAnimation,
+  NODE_VISUAL_HALF_WIDTH, NODE_VISUAL_TOP, NODE_VISUAL_BOTTOM,
+} from '../rendering/nodeRenderer';
 import { drawEdges } from '../rendering/edgeRenderer';
 import { drawWaves, WaveAnimation } from '../rendering/waveRenderer';
 import { flattenTree, getTreeBounds } from '../rendering/treeLayout';
@@ -47,7 +50,9 @@ export const TreeCanvas: React.FC<Props> = ({
     return map;
   }, [getAllNodes]);
 
-  // Auto-center tree on load
+  // Auto-center tree on load. Bounds account for the visible extent of each
+  // node (including its wrapped label below), not just node centers, so
+  // wrapped/long labels at the edges don't get clipped.
   useEffect(() => {
     if (!layoutRoot || !canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -56,23 +61,41 @@ export const TreeCanvas: React.FC<Props> = ({
     const h = rect.height || canvas.height;
     if (w === 0 || h === 0) return;
 
-    const bounds = getTreeBounds(layoutRoot);
-    let maxX = bounds.maxX;
-    let maxY = bounds.maxY;
+    const renderableBounds = (root: LayoutNode) => {
+      const b = getTreeBounds(root);
+      return {
+        minX: b.minX - NODE_VISUAL_HALF_WIDTH,
+        maxX: b.maxX + NODE_VISUAL_HALF_WIDTH,
+        minY: b.minY - NODE_VISUAL_TOP,
+        maxY: b.maxY + NODE_VISUAL_BOTTOM,
+      };
+    };
+
+    const b1 = renderableBounds(layoutRoot);
+    let { minX, maxX, minY, maxY } = b1;
     if (secondLayoutRoot) {
-      const b2 = getTreeBounds(secondLayoutRoot);
+      const b2 = renderableBounds(secondLayoutRoot);
+      minX = Math.min(minX, b2.minX);
       maxX = Math.max(maxX, b2.maxX);
+      minY = Math.min(minY, b2.minY);
       maxY = Math.max(maxY, b2.maxY);
     }
-    const treeWidth = maxX - bounds.minX + 100;
-    const hasLabels = !!(leftLabel || rightLabel);
-    const labelPadding = hasLabels ? 30 : 0;
-    const treeHeight = maxY - bounds.minY + 150 + labelPadding;
+
+    // Reserve vertical headroom for tree labels drawn above each tree root.
+    const labelPadding = (leftLabel || rightLabel) ? 30 : 0;
+    minY -= labelPadding;
+
+    const treeWidth = maxX - minX;
+    const treeHeight = maxY - minY;
+
     const scaleX = w / treeWidth;
     const scaleY = h / treeHeight;
     const newZoom = Math.min(scaleX, scaleY, 1.5);
-    const centerX = (w / newZoom - treeWidth) / 2 - bounds.minX + 50;
-    const centerY = 20 + labelPadding;
+
+    // Center the renderable region in the viewport.
+    const centerX = (w / newZoom - treeWidth) / 2 - minX;
+    const centerY = (h / newZoom - treeHeight) / 2 - minY;
+
     setZoom(newZoom);
     setPan({ x: centerX, y: centerY });
   }, [layoutRoot, secondLayoutRoot, loadCounter, leftLabel, rightLabel]);

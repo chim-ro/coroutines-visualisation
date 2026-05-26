@@ -3,6 +3,70 @@ import { STATE_COLORS, TEXT_COLOR } from '../utils/colors';
 
 const NODE_RADIUS = 24;
 const LABEL_OFFSET = 36;
+// Slightly less than NODE_SPACING_X (130) in treeLayout.ts, so adjacent
+// sibling labels don't visually overlap.
+const MAX_LABEL_WIDTH = 120;
+const LABEL_LINE_HEIGHT = 12;
+const MAX_LABEL_LINES = 2;
+const STATE_LINE_HEIGHT = 12;
+
+// Visual extents of a rendered node, measured from its center (x, y).
+// Used by the canvas auto-fit logic so the wrapped labels at the edges of
+// the tree don't get clipped by the viewport.
+//   - Half-width: max of NODE_RADIUS and half the label width.
+//   - Top: NODE_RADIUS plus a little headroom for the SJ badge.
+//   - Bottom: label rows + state row + a few px of breathing room.
+export const NODE_VISUAL_HALF_WIDTH = Math.max(NODE_RADIUS, MAX_LABEL_WIDTH / 2);
+export const NODE_VISUAL_TOP = NODE_RADIUS + 10;
+export const NODE_VISUAL_BOTTOM = LABEL_OFFSET + MAX_LABEL_LINES * LABEL_LINE_HEIGHT + STATE_LINE_HEIGHT + 6;
+
+// Word-wrap `text` to fit within `maxWidth` on up to `maxLines` lines.
+// Long words (no whitespace to break on) and overflowing final lines are
+// truncated with an ellipsis. Caller must have set the desired font on `ctx`.
+function wrapLabel(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  if (ctx.measureText(text).width <= maxWidth) return [text];
+
+  const ellipsis = '…';
+  // Truncate `s` with an ellipsis until it fits within maxWidth.
+  const truncate = (s: string): string => {
+    if (ctx.measureText(s).width <= maxWidth) return s;
+    let cur = s;
+    while (cur.length > 0 && ctx.measureText(cur + ellipsis).width > maxWidth) {
+      cur = cur.slice(0, -1);
+    }
+    return cur + ellipsis;
+  };
+
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  const lines: string[] = [];
+  let current = '';
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const tentative = current ? `${current} ${word}` : word;
+    if (ctx.measureText(tentative).width <= maxWidth) {
+      current = tentative;
+      continue;
+    }
+
+    // Word doesn't fit alongside what we have. Flush current line first
+    // (truncate it on the off-chance it's a single oversized word from
+    // a prior iteration).
+    if (current) lines.push(truncate(current));
+    // Start a new line with this word — truncated if it alone exceeds maxWidth.
+    current = truncate(word);
+
+    if (lines.length === maxLines - 1) {
+      // Final allowed line: fit as many remaining words as possible.
+      const lastLine = words.slice(i).join(' ');
+      lines.push(truncate(lastLine));
+      return lines;
+    }
+  }
+
+  if (current) lines.push(truncate(current));
+  return lines;
+}
 
 export interface NodeAnimation {
   nodeId: string;
@@ -108,15 +172,19 @@ export function drawNode(
     : 'RB';
   ctx.fillText(icon, 0, 0);
 
-  // Label below node
+  // Label below node — wrap to fit within sibling spacing
   ctx.fillStyle = TEXT_COLOR;
   ctx.font = '11px monospace';
-  ctx.fillText(node.displayName, 0, LABEL_OFFSET);
+  const labelLines = wrapLabel(ctx, node.displayName, MAX_LABEL_WIDTH, MAX_LABEL_LINES);
+  for (let i = 0; i < labelLines.length; i++) {
+    ctx.fillText(labelLines[i], 0, LABEL_OFFSET + i * LABEL_LINE_HEIGHT);
+  }
 
-  // State label
+  // State label — pushed down by the number of label lines
+  const stateY = LABEL_OFFSET + labelLines.length * LABEL_LINE_HEIGHT + 2;
   ctx.fillStyle = baseColor;
-  ctx.font = '10px monospace';
-  ctx.fillText(node.state, 0, LABEL_OFFSET + 14);
+  ctx.font = `${STATE_LINE_HEIGHT - 2}px monospace`;
+  ctx.fillText(node.state, 0, stateY);
 
   // SupervisorJob badge
   if (node.jobType === 'SupervisorJob') {
