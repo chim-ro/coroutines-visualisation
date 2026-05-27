@@ -353,6 +353,32 @@ export function generateTimeline(root: BuilderNodeConfig, scenarioName: string):
     completeDelay += 500;
   }
 
+  // Phase 5.5: Fix activation ordering.
+  // Phase 1 schedules each node's New→Active by depth (depth*600), but the
+  // failure cascade (Phases 2-4) cancels descendants on the failure clock.
+  // When a shallow node fails early, a deep descendant can be cancelled
+  // BEFORE its depth-based activation, producing an illegal
+  // New→Cancelling→Active→Cancelled sequence. Pull any such activation to
+  // just before the node's first non-Active transition.
+  const activeEventByNode = new Map<string, StateChangeEvent>();
+  const earliestNonActiveByNode = new Map<string, number>();
+  for (const e of events) {
+    if (e.type !== 'stateChange') continue;
+    const sc = e as StateChangeEvent;
+    if (sc.toState === 'Active' && sc.fromState === 'New') {
+      activeEventByNode.set(sc.nodeId, sc);
+    } else {
+      const prev = earliestNonActiveByNode.get(sc.nodeId);
+      if (prev === undefined || sc.delayMs < prev) earliestNonActiveByNode.set(sc.nodeId, sc.delayMs);
+    }
+  }
+  for (const [nodeId, activeEvent] of activeEventByNode) {
+    const earliestOther = earliestNonActiveByNode.get(nodeId);
+    if (earliestOther !== undefined && activeEvent.delayMs >= earliestOther) {
+      activeEvent.delayMs = Math.max(0, earliestOther - 50);
+    }
+  }
+
   // Phase 6: Sort and de-duplicate simultaneous events
   events.sort((a, b) => a.delayMs - b.delayMs);
   for (let i = 1; i < events.length; i++) {

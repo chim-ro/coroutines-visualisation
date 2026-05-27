@@ -460,4 +460,117 @@ describe('generateTimeline', () => {
     // Total node count: 10
     expect(collectNodeIds(timeline.tree)).toHaveLength(10);
   });
+
+  // ── Test 11: shallow node fails early above a deep descendant chain ─
+  // Regression: Phase-1 activation is depth-based, but an early failure cancels
+  // deep descendants on a faster clock. Every node must still go
+  // New → Active → Cancelling → Cancelled in order (no New→Cancelling→Active).
+  it('11. early shallow failure with deep descendant chain keeps legal lifecycle ordering', () => {
+    const tree = root([
+      node('a', 'launch A (fails early)', 'Launch', 'Job', [
+        node('a1', 'launch A1', 'Launch', 'Job', [
+          node('a2', 'launch A2', 'Launch', 'Job', [
+            node('a3', 'launch A3'),
+          ]),
+        ]),
+      ], { exceptionMessage: 'early boom', timingMs: 0 }),
+    ]);
+    const timeline = generateTimeline(tree, 'Deep cancel ordering');
+
+    // assertValid includes transition consistency — this is the core regression check.
+    assertValid(timeline);
+
+    // Every node in the chain ends Cancelled.
+    for (const id of ['a', 'a1', 'a2', 'a3', 'root']) {
+      expect(finalState(timeline, id)).toBe('Cancelled');
+    }
+
+    // The deepest node must reach Active before it reaches Cancelling.
+    const a3 = stateChangesFor(timeline, 'a3');
+    const a3Active = a3.findIndex(e => e.toState === 'Active');
+    const a3Cancelling = a3.findIndex(e => e.toState === 'Cancelling');
+    expect(a3Active).toBeGreaterThanOrEqual(0);
+    expect(a3Active).toBeLessThan(a3Cancelling);
+    // Canonical lifecycle, in order:
+    expect(a3.map(e => e.toState)).toEqual(['Active', 'Cancelling', 'Cancelled']);
+  });
+
+  // ── Test 12: async child failure under a regular scope propagates ───
+  // Training (l-105/108): an async failing under coroutineScope/regular Job
+  // propagates to the parent and cancels siblings (the exception is NOT
+  // silently confined the way it is under a supervisor).
+  it('12. failing async under a regular scope propagates and cancels siblings', () => {
+    const tree = root([
+      node('producer', 'async (fails)', 'Async', 'Job', [], {
+        exceptionMessage: 'async boom',
+        timingMs: 600,
+      }),
+      node('sibling', 'launch (sibling)'),
+    ]);
+    const timeline = generateTimeline(tree, 'Async failure');
+
+    assertValid(timeline);
+
+    expect(finalState(timeline, 'producer')).toBe('Cancelled');
+    expect(finalState(timeline, 'sibling')).toBe('Cancelled');
+    expect(finalState(timeline, 'root')).toBe('Cancelled');
+
+    // Exception propagates up from the async to the scope...
+    const exs = exceptions(timeline);
+    expect(exs.some(e => e.sourceNodeId === 'producer' && e.targetNodeId === 'root')).toBe(true);
+    // ...and the scope cancels the sibling.
+    const cxs = cancellations(timeline);
+    expect(cxs.some(e => e.sourceNodeId === 'root' && e.targetNodeId === 'sibling')).toBe(true);
+  });
+
+  // ── Test 13: the root coroutine itself fails ────────────────────────
+  it('13. failing root cancels itself and its descendants, no upward propagation', () => {
+    const tree = root([
+      node('child', 'launch'),
+    ]);
+    // Attach a failure to the root itself.
+    tree.failure = { exceptionMessage: 'root boom', timingMs: 300 };
+
+    const timeline = generateTimeline(tree, 'Root failure');
+
+    assertValid(timeline);
+
+    expect(finalState(timeline, 'root')).toBe('Cancelled');
+    expect(finalState(timeline, 'child')).toBe('Cancelled');
+
+    // No exception can propagate above the root.
+    const exs = exceptions(timeline);
+    expect(exs.every(e => e.sourceNodeId !== 'root')).toBe(true);
+    // The root's failure cancels its descendant downward.
+    const cxs = cancellations(timeline);
+    expect(cxs.some(e => e.sourceNodeId === 'root' && e.targetNodeId === 'child')).toBe(true);
+  });
+
+  // ── Test 14: two independent failures in separate subtrees ──────────
+  it('14. two sibling subtrees each failing both cascade to the root', () => {
+    const tree = root([
+      node('left', 'launch L', 'Launch', 'Job', [
+        node('l1', 'launch L1 (fails)', 'Launch', 'Job', [], {
+          exceptionMessage: 'L boom', timingMs: 700,
+        }),
+      ]),
+      node('right', 'launch R', 'Launch', 'Job', [
+        node('r1', 'launch R1 (fails)', 'Launch', 'Job', [], {
+          exceptionMessage: 'R boom', timingMs: 700,
+        }),
+      ]),
+    ]);
+    const timeline = generateTimeline(tree, 'Double failure');
+
+    assertValid(timeline);
+
+    // Everything ends Cancelled — the first failure to reach the root cancels
+    // the whole tree; the second failing node is already on its way down.
+    for (const id of ['l1', 'left', 'r1', 'right', 'root']) {
+      expect(finalState(timeline, id)).toBe('Cancelled');
+    }
+    // At least one failure chain reaches the root.
+    const exs = exceptions(timeline);
+    expect(exs.some(e => e.targetNodeId === 'root')).toBe(true);
+  });
 });
