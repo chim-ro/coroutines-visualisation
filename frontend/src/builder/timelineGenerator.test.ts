@@ -573,4 +573,90 @@ describe('generateTimeline', () => {
     const exs = exceptions(timeline);
     expect(exs.some(e => e.targetNodeId === 'root')).toBe(true);
   });
+
+  // ── Test 15: complex 4-level tree with TWO levels of supervisor isolation ─
+  // A user-built hierarchy mixing supervisorScope, coroutineScope, launch, and
+  // async, with two independent failures at different depths. Verifies that
+  // supervisor isolation works in nested form: an inner supervisor protects
+  // its surviving children from a failed sibling subtree, AND an outer
+  // supervisor protects unrelated branches from a regular-scope cascade
+  // happening elsewhere. Training: l-105, l-108, l-109.
+  //
+  //   root (supervisorScope)
+  //   ├── serviceA (supervisorScope)         ← isolates workerA1's cascade
+  //   │   ├── workerA1 (launch)
+  //   │   │   ├── taskA1a (async)            ← cancelled (sibling of failing taskA1b)
+  //   │   │   └── taskA1b (launch, FAILS)
+  //   │   └── workerA2 (launch)              ← SURVIVES
+  //   │       └── taskA2a (launch)           ← SURVIVES
+  //   ├── serviceB (coroutineScope)          ← regular scope, cascades
+  //   │   ├── workerB1 (async, FAILS)
+  //   │   └── workerB2 (launch)
+  //   │       └── taskB2a (async)
+  //   └── monitor (launch)                   ← SURVIVES (root supervisor protects)
+  //       └── heartbeat (launch)             ← SURVIVES
+  it('15. nested two-level supervisor isolation across a 13-node tree', () => {
+    const tree = node('root', 'supervisorScope', 'SupervisorScope', 'SupervisorJob', [
+      node('serviceA', 'supervisorScope A', 'SupervisorScope', 'SupervisorJob', [
+        node('workerA1', 'launch worker A1', 'Launch', 'Job', [
+          node('taskA1a', 'async task A1a', 'Async'),
+          node('taskA1b', 'launch task A1b (fails)', 'Launch', 'Job', [], {
+            exceptionMessage: 'A1b boom', timingMs: 800,
+          }),
+        ]),
+        node('workerA2', 'launch worker A2', 'Launch', 'Job', [
+          node('taskA2a', 'launch task A2a'),
+        ]),
+      ]),
+      node('serviceB', 'coroutineScope B', 'CoroutineScope', 'Job', [
+        node('workerB1', 'async worker B1 (fails)', 'Async', 'Job', [], {
+          exceptionMessage: 'B1 boom', timingMs: 1000,
+        }),
+        node('workerB2', 'launch worker B2', 'Launch', 'Job', [
+          node('taskB2a', 'async task B2a', 'Async'),
+        ]),
+      ]),
+      node('monitor', 'launch monitor', 'Launch', 'Job', [
+        node('heartbeat', 'launch heartbeat'),
+      ]),
+    ]);
+    const timeline = generateTimeline(tree, 'Complex nested isolation');
+
+    assertValid(timeline);
+    expect(collectNodeIds(timeline.tree)).toHaveLength(13);
+
+    // === serviceA branch: workerA1 subtree dies, supervisor saves workerA2 ===
+    expect(finalState(timeline, 'taskA1b')).toBe('Cancelled');   // the failing node
+    expect(finalState(timeline, 'taskA1a')).toBe('Cancelled');   // sibling under regular workerA1
+    expect(finalState(timeline, 'workerA1')).toBe('Cancelled');  // cascaded up
+    expect(finalState(timeline, 'workerA2')).toBe('Completed');  // ★ serviceA supervisor isolation
+    expect(finalState(timeline, 'taskA2a')).toBe('Completed');   // ★ same
+    expect(finalState(timeline, 'serviceA')).toBe('Completed');  // ★ absorbed workerA1's failure
+
+    // === serviceB branch: regular scope cascades the whole subtree ===
+    expect(finalState(timeline, 'workerB1')).toBe('Cancelled');
+    expect(finalState(timeline, 'workerB2')).toBe('Cancelled');
+    expect(finalState(timeline, 'taskB2a')).toBe('Cancelled');
+    expect(finalState(timeline, 'serviceB')).toBe('Cancelled');
+
+    // === monitor unaffected — root supervisor isolated serviceB's failure ===
+    expect(finalState(timeline, 'monitor')).toBe('Completed');
+    expect(finalState(timeline, 'heartbeat')).toBe('Completed');
+    expect(finalState(timeline, 'root')).toBe('Completed');
+
+    // === Propagation chains: each stops at a supervisor ===
+    const exs = exceptions(timeline);
+    // serviceA branch: taskA1b → workerA1 → serviceA (absorbed)
+    expect(exs.some(e => e.sourceNodeId === 'taskA1b' && e.targetNodeId === 'workerA1')).toBe(true);
+    expect(exs.some(e => e.sourceNodeId === 'workerA1' && e.targetNodeId === 'serviceA')).toBe(true);
+    // serviceB branch: workerB1 → serviceB → root (absorbed)
+    expect(exs.some(e => e.sourceNodeId === 'workerB1' && e.targetNodeId === 'serviceB')).toBe(true);
+    expect(exs.some(e => e.sourceNodeId === 'serviceB' && e.targetNodeId === 'root')).toBe(true);
+
+    // === Protected subtrees receive NO CancellationEvents ===
+    const cxs = cancellations(timeline);
+    for (const protectedId of ['workerA2', 'taskA2a', 'monitor', 'heartbeat']) {
+      expect(cxs.some(e => e.targetNodeId === protectedId)).toBe(false);
+    }
+  });
 });
