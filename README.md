@@ -18,7 +18,7 @@ Coroutines Visualization/
 │       ├── Application.kt            # Ktor server entry point
 │       ├── model/                     # JobState, BuilderType, JobType, CoroutineNode
 │       ├── event/                     # SimulationEvent sealed class, EventTimeline
-│       ├── scenario/                  # 6 scenario implementations + registry
+│       ├── scenario/                  # 19 scenario implementations + registry
 │       └── routes/                    # REST endpoints
 │
 ├── frontend/                          # React + TypeScript + Vite
@@ -56,16 +56,42 @@ Coroutines Visualization/
 |--------|------|----------|
 | GET | `/api/scenarios` | List of `{id, name, description, category}` |
 | GET | `/api/scenarios/{id}` | Full `EventTimeline` with tree structure + events |
+| GET | `/api/scenarios/{id}?level={beginner\|intermediate\|advanced}` | Same, at the requested difficulty level |
 
 ## Scenarios
 
-1. **Happy Path** (Basics) — All coroutines complete normally: Active → Completing → Completed. Parent waits for children.
-2. **Suspension & Resumption** (Basics) — A coroutine hits delay() and suspends, freeing the thread. Other coroutines run, then it resumes. The "aha moment" for coroutine concurrency.
-3. **Downward Cancellation** (Cancellation) — Parent cancelled, signal cascades to all descendants with staggered timing.
-4. **Child Exception** (Exceptions) — Child throws, exception propagates up, siblings get cancelled.
-5. **SupervisorJob** (Exceptions) — Same exception under SupervisorJob: only failing child cancelled, siblings continue.
-6. **Scope Comparison** (Comparison) — Side-by-side: coroutineScope vs supervisorScope with same exception (two trees).
-7. **Nested Scopes** (Advanced) — Deep tree (4 levels) with mixed scope types.
+19 built-in scenarios, each with three difficulty levels (**beginner**, **intermediate**, **advanced**) that progress from a minimal demo to a complex multi-tree case.
+
+### Basics
+- **Happy Path** — All coroutines complete normally. Parent waits for children.
+- **Suspension & Resumption** — A coroutine hits `delay()` and suspends, freeing the thread for others. The "aha moment" for cooperative concurrency.
+- **Lazy Start** — `CoroutineStart.LAZY` keeps a coroutine in `New` until `.start()`, `.join()`, or `.await()` triggers it. Advanced level demonstrates the "forgotten lazy" deadlock and its `cancel()` escape.
+
+### Cancellation
+- **Downward Cancellation** — Parent cancelled, signal cascades to all descendants.
+- **withTimeout / withTimeoutOrNull** — `withTimeout` throws `TimeoutCancellationException`; advanced level contrasts it side-by-side with `withTimeoutOrNull` (returns null).
+- **NonCancellable Context** — `withContext(NonCancellable)` lets cleanup code run during cancellation.
+- **Cooperative Cancellation** — `ensureActive()` vs `isActive` vs non-cooperative bodies. Demonstrates that even a non-cooperative body's Job still ends `Cancelled`.
+- **Cancelled Scope: Silent Drops** — Launches on an already-cancelled scope silently fail (the new coroutine is born `Cancelled`). Advanced level contrasts `CoroutineScope(Job())` vs `CoroutineScope(SupervisorJob())`.
+
+### Exceptions
+- **Child Exception** — Child throws; exception propagates up; siblings get cancelled.
+- **CoroutineExceptionHandler** — CEH receives uncaught exceptions from `launch` children under a `SupervisorJob`. `async` failures stay in the `Deferred` and are silently lost if never awaited.
+
+### Lifecycle
+- **invokeOnCompletion** — Callbacks fire on terminal state with `cause` = null / exception / `CancellationException`.
+
+### Comparison
+- **Scope Comparison** — Side-by-side: `coroutineScope` vs `supervisorScope` with the same exception.
+- **Threads vs Coroutines** — Side-by-side cost/scheduling comparison.
+- **Async: Immediate vs Deferred** — Side-by-side: an async failure under `coroutineScope` (immediate propagation) vs under `supervisorScope` (held in the `Deferred`, silently lost if not awaited).
+
+### Advanced
+- **Nested Scopes** — Deep tree (4 levels) with mixed scope types.
+- **CoroutineContext Inheritance** — Context inheritance, `CoroutineName`, `Dispatchers`, and the `launch(Job())` / `launch(SupervisorJob())` antipatterns.
+- **Dispatchers & withContext** — `Dispatchers.Default` / `IO` / `Main`, `withContext` for switching mid-coroutine, and the `Dispatchers.IO` 64-thread-limit caveat.
+- **Job() Factory Trap** — A manually-created `Job()` doesn't auto-complete when its children finish; `job.join()` hangs forever without `job.complete()`.
+- **External Scope (Fire-and-Forget)** — The right way to detach work from a short-lived scope: launch into a long-lived `externalScope = CoroutineScope(SupervisorJob())`. Advanced contrasts it vs the `launch(Job())` orphan antipattern.
 
 ## Coroutine Job States
 
@@ -116,6 +142,29 @@ cd frontend
 npm install
 npm run dev                      # Starts Vite on http://localhost:5173 (proxies API to :8080)
 ```
+
+## Development scripts
+
+```bash
+# Backend tests (Kotlin scenarios + timeline validators)
+cd backend
+./gradlew test                   # ~65 tests across all 19 scenarios
+
+# Frontend unit tests (timeline generator)
+cd frontend
+npm test                         # 15 tests for the custom-builder timeline generator
+
+# Frontend lint + type-check
+cd frontend
+npm run lint                     # ESLint (flat config)
+npx tsc --noEmit                 # TypeScript type-check (no emit)
+
+# End-to-end builder UI check (requires both dev servers running)
+cd frontend
+npm run verify:builder           # Drives the builder modal via puppeteer-core + system Chrome
+```
+
+The end-to-end builder check opens the "+ Create Scenario" modal in a headless Chrome, adds a child, configures it as an `async` that throws, clicks Generate & Play, and confirms the custom timeline renders + plays without console/page errors. Screenshots are written to `/tmp/coroutines-verify/builder/` by default. Override via `APP_URL`, `BACKEND_URL`, `CHROME_PATH`, or `SHOTS_DIR` env vars.
 
 ## Creating Custom Scenarios
 
@@ -226,21 +275,23 @@ Compare two variants of the same scenario side by side to explore how structural
 
 This is useful for answering questions like "What changes if I use SupervisorJob here?" or "What happens if this child doesn't fail?"
 
-## Verification
+## Manual smoke test
 
 1. Start backend: `cd backend && ./gradlew run`
 2. Start frontend: `cd frontend && npm run dev`
 3. Open `http://localhost:5173`
-4. Click "Happy Path" — tree animates through all states
-5. Click "Child Exception" — exception bubbles up, siblings cancel
-6. Click "Supervisor Job" — only failing child cancels
-7. Click "Scope Comparison" — side-by-side trees show different behavior
-8. Test controls: play/pause/step/reset/speed slider
-9. Click nodes to see details in InfoPanel
-10. Click "+ Create Scenario", build a 3-4 node tree, mark one as failing, click "Generate & Play"
-11. Right-click an Active node during playback — try Cancel, Inject Exception, and Force Complete
-12. Use Step Backward after a live manipulation to verify correct state reconstruction
-13. Refresh the page — custom scenarios should still appear in the sidebar
-14. Test keyboard shortcuts: press Space to play/pause, ←/→ to step, R to reset, 1–5 for speed presets. Open the scenario builder and verify shortcuts don't fire while typing in inputs
-15. Toggle Quiz mode on, play a scenario — verify it pauses before each event with multiple-choice options. Answer a few, check score tracking. Toggle off to resume normal playback
-16. Click Compare with a scenario loaded — modify the right tree (e.g. change Job to SupervisorJob), click "Compare & Play". Verify both trees animate and divergent nodes get orange borders after playback
+4. Click **Happy Path** — tree animates through all states.
+5. Click **Child Exception** — exception bubbles up, siblings cancel.
+6. Click **Scope Comparison** — side-by-side trees show different behavior under `coroutineScope` vs `supervisorScope`.
+7. Click **Async: Immediate vs Deferred** — switch to Advanced level; verify the right (`supervisorScope`) side preserves sibling work until `.await()` is finally called.
+8. Click **withTimeout / withTimeoutOrNull** at Advanced — verify both internal Jobs end Cancelled but both outer scopes still complete.
+9. Click **Cancelled Scope: Silent Drops** at Advanced — verify the ghost launch on the LEFT side goes directly `New → Cancelled`, while the RIGHT (`SupervisorJob`) side's new launch runs normally.
+10. Test controls: play/pause/step/reset/speed slider.
+11. Click nodes to see details in InfoPanel.
+12. Click **"+ Create Scenario"**, build a 3-4 node tree, mark one as failing, click "Generate & Play".
+13. Right-click an Active node during playback — try Cancel, Inject Exception, and Force Complete.
+14. Use Step Backward after a live manipulation to verify correct state reconstruction.
+15. Refresh the page — custom scenarios should still appear in the sidebar.
+16. Keyboard shortcuts: Space to play/pause, ←/→ to step, R to reset, 1–5 for speed presets. Open the scenario builder and verify shortcuts don't fire while typing in inputs.
+17. Toggle **Quiz** mode on, play a scenario — verify it pauses before each event with multiple-choice options. Toggle off to resume normal playback.
+18. Click **Compare** with a scenario loaded — modify the right tree (e.g. change Job to SupervisorJob), click "Compare & Play". Verify both trees animate and divergent nodes get orange borders after playback.
