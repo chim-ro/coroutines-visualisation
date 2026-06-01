@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "verify:builder": "node scripts/verify-builder-ui.mjs"
+    "verify:builder": "node scripts/verify-builder-ui.mjs",
+    "verify:run": "node scripts/verify-run.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
