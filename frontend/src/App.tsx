@@ -10,8 +10,6 @@ import { CodePanel } from './components/CodePanel';
 import { ScenarioBuilderPanel } from './builder/ScenarioBuilderPanel';
 import { useAnimationEngine } from './hooks/useAnimationEngine';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useQuizMode } from './hooks/useQuizMode';
-import { QuizPanel } from './components/QuizPanel';
 import { ComparisonPanel } from './components/ComparisonPanel';
 import { fetchTimeline } from './api/scenarioApi';
 import { CustomScenario } from './builder/types';
@@ -60,22 +58,7 @@ const App: React.FC = () => {
   const [diffHighlightNodes, setDiffHighlightNodes] = useState<Set<string>>(new Set());
   const [comparisonLabels, setComparisonLabels] = useState<{ left: string; right: string } | null>(null);
 
-  const quiz = useQuizMode();
-
   useKeyboardShortcuts(controls, animState.isPlaying);
-
-  // Keep quiz mode in sync with node states
-  useEffect(() => {
-    quiz.updateNodeStates(animState.nodeStates);
-  }, [animState.nodeStates, quiz]);
-
-  const handleToggleQuiz = useCallback(() => {
-    if (quiz.state.quizEnabled) {
-      quiz.deactivate(controls);
-    } else {
-      quiz.activate(controls);
-    }
-  }, [quiz, controls]);
 
   const handleCompare = useCallback(() => {
     setShowComparison(true);
@@ -323,15 +306,6 @@ const App: React.FC = () => {
                     Right-click an active node to manipulate it
                   </div>
                 )}
-
-                {/* Quiz overlay */}
-                {quiz.state.quizEnabled && (
-                  <QuizPanel
-                    quizState={quiz.state}
-                    onSubmitAnswer={quiz.submitAnswer}
-                    onContinue={quiz.continuePlayback}
-                  />
-                )}
               </>
             )}
           </div>
@@ -371,9 +345,6 @@ const App: React.FC = () => {
         onStepBackward={controls.stepBackward}
         onReset={controls.reset}
         onSpeedChange={controls.setSpeed}
-        quizEnabled={quiz.state.quizEnabled}
-        onToggleQuiz={handleToggleQuiz}
-        quizScore={quiz.state.score}
         showCompare={!!activeScenarioId}
         onCompare={handleCompare}
       />

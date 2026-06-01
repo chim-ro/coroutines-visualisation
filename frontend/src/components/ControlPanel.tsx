@@ -12,9 +12,6 @@ interface Props {
   onStepBackward: () => void;
   onReset: () => void;
   onSpeedChange: (speed: number) => void;
-  quizEnabled?: boolean;
-  onToggleQuiz?: () => void;
-  quizScore?: { correct: number; total: number };
   onCompare?: () => void;
   showCompare?: boolean;
 }
@@ -45,7 +42,7 @@ const btnStyle: React.CSSProperties = {
 export const ControlPanel: React.FC<Props> = ({
   isPlaying, currentEvent, totalEvents, speed,
   onPlay, onPause, onStepForward, onStepBackward, onReset, onSpeedChange,
-  quizEnabled, onToggleQuiz, quizScore, onCompare, showCompare,
+  onCompare, showCompare,
 }) => {
   return (
     <div style={{
@@ -82,27 +79,8 @@ export const ControlPanel: React.FC<Props> = ({
         <span style={{ minWidth: 36 }}>{speed}x</span>
       </div>
 
-      {onToggleQuiz && (
-        <button
-          style={{
-            ...btnStyle,
-            marginLeft: 16,
-            background: quizEnabled ? ACCENT_COLOR + '33' : 'transparent',
-            borderColor: quizEnabled ? ACCENT_COLOR : BORDER_COLOR,
-          }}
-          onClick={onToggleQuiz}
-          title="Toggle Quiz Mode"
-        >
-          {quizEnabled ? '🧠 Quiz On' : '🧠 Quiz'}
-          {quizEnabled && quizScore && quizScore.total > 0 && (
-            <span style={{ marginLeft: 6, fontSize: 11, color: ACCENT_COLOR }}>
-              {quizScore.correct}/{quizScore.total}
-            </span>
-          )}
-        </button>
-      )}
-
       {showCompare && onCompare && (
+
         <button
           style={{ ...btnStyle, marginLeft: 8 }}
           onClick={onCompare}

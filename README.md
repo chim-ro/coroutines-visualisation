@@ -26,7 +26,7 @@ Coroutines Visualization/
 │       ├── App.tsx                    # Root layout: sidebar + canvas + controls
 │       ├── types/                     # TypeScript types matching Kotlin models
 │       ├── api/                       # Fetch layer for backend API
-│       ├── hooks/                     # useAnimationEngine, useBuilderState, useKeyboardShortcuts, useQuizMode
+│       ├── hooks/                     # useAnimationEngine, useBuilderState, useKeyboardShortcuts
 │       ├── components/                # TreeCanvas, ScenarioPanel, ControlPanel, NodeContextMenu, etc.
 │       ├── builder/                   # Custom scenario builder (panel, forms, preview, timeline generator)
 │       ├── manipulation/              # Live node manipulation (event injector)
@@ -126,7 +126,6 @@ Coroutines Visualization/
 - **Interactive canvas**: Click nodes to see details, drag to pan, scroll to zoom
 - **Side-by-side comparison**: Scope Comparison scenario shows two trees side by side
 - **"What If" comparison mode**: Duplicate any scenario, modify the copy (change Job type, add/remove failures), and play both trees side by side with divergent nodes highlighted
-- **Quiz/prediction mode**: Pause before each significant event and predict what happens next from multiple-choice options, with score tracking
 - **Custom scenario builder**: Create your own coroutine trees with configurable failures
 - **Live node manipulation**: Right-click active nodes during playback to cancel, inject exceptions, or force-complete
 
@@ -233,28 +232,6 @@ All shortcuts are disabled when focus is inside an input field or text area.
 
 Shortcut hints are shown next to each control panel button.
 
-## Quiz / Prediction Mode
-
-Quiz mode turns passive watching into active learning by testing your understanding of structured concurrency.
-
-### How to use
-
-1. Click the **"Quiz"** button in the bottom control bar to enable quiz mode.
-2. Press **Play** — playback pauses before each significant event (state changes, cancellations, exceptions).
-3. A panel appears over the canvas with the question **"What happens next?"** and 3–4 multiple-choice options.
-4. Select an answer:
-   - **Correct** answers highlight in green.
-   - **Incorrect** answers highlight in red, and the correct answer is revealed.
-5. Click **"Continue →"** (or press Enter) to resume playback to the next event.
-6. Your running score is shown in the control bar (e.g. "3/5").
-7. Click the Quiz button again to disable quiz mode and resume normal playback.
-
-### How distractors are generated
-
-- **Wrong state, same node**: e.g. "child-1 enters Completing" instead of "child-1 enters Cancelling"
-- **Wrong node, same action**: e.g. "child-2 becomes Active" instead of "child-1 becomes Active"
-- **Wrong propagation direction**: e.g. exception going the wrong way between parent and child
-
 ## "What If" Comparison Mode
 
 Compare two variants of the same scenario side by side to explore how structural changes affect behavior.
@@ -293,5 +270,4 @@ This is useful for answering questions like "What changes if I use SupervisorJob
 14. Use Step Backward after a live manipulation to verify correct state reconstruction.
 15. Refresh the page — custom scenarios should still appear in the sidebar.
 16. Keyboard shortcuts: Space to play/pause, ←/→ to step, R to reset, 1–5 for speed presets. Open the scenario builder and verify shortcuts don't fire while typing in inputs.
-17. Toggle **Quiz** mode on, play a scenario — verify it pauses before each event with multiple-choice options. Toggle off to resume normal playback.
-18. Click **Compare** with a scenario loaded — modify the right tree (e.g. change Job to SupervisorJob), click "Compare & Play". Verify both trees animate and divergent nodes get orange borders after playback.
+17. Click **Compare** with a scenario loaded — modify the right tree (e.g. change Job to SupervisorJob), click "Compare & Play". Verify both trees animate and divergent nodes get orange borders after playback.
