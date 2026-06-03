@@ -12,43 +12,11 @@ class DispatchersScenario : Scenario {
     )
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "cpu-work",
-                    displayName = "launch (Default)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "io-work",
-                    displayName = "launch (IO)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "switcher",
-                    displayName = "launch (switcher)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "with-context",
-                            displayName = "withContext(Default)",
-                            builder = BuilderType.CoroutineScope,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "runBlocking", BuilderType.RunBlocking,
+            node("cpu-work", "launch (Default)", BuilderType.Launch),
+            node("io-work", "launch (IO)", BuilderType.Launch),
+            node("switcher", "launch (switcher)", BuilderType.Launch,
+                node("with-context", "withContext(Default)", BuilderType.CoroutineScope)
             )
         )
 
@@ -225,8 +193,7 @@ class DispatchersScenario : Scenario {
             }
         """.trimIndent()
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = kotlinCode
@@ -237,21 +204,8 @@ class DispatchersScenario : Scenario {
         "intermediate" -> buildTimeline()
 
         "beginner" -> {
-            val tree = CoroutineNode(
-                id = "root",
-                displayName = "runBlocking",
-                builder = BuilderType.RunBlocking,
-                jobType = JobType.Job,
-                initialState = JobState.New,
-                children = listOf(
-                    CoroutineNode(
-                        id = "cpu-work",
-                        displayName = "launch (Default)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    )
-                )
+            val tree = node("root", "runBlocking", BuilderType.RunBlocking,
+                node("cpu-work", "launch (Default)", BuilderType.Launch)
             )
 
             val events = listOf(
@@ -320,8 +274,7 @@ class DispatchersScenario : Scenario {
                 }
             """.trimIndent()
 
-            EventTimeline(
-                scenarioName = info.name,
+            timeline(
                 tree = tree,
                 events = events,
                 kotlinCode = kotlinCode
@@ -329,57 +282,13 @@ class DispatchersScenario : Scenario {
         }
 
         "advanced" -> {
-            val tree = CoroutineNode(
-                id = "root",
-                displayName = "runBlocking",
-                builder = BuilderType.RunBlocking,
-                jobType = JobType.Job,
-                initialState = JobState.New,
-                children = listOf(
-                    CoroutineNode(
-                        id = "cpu-work",
-                        displayName = "launch (Default)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    ),
-                    CoroutineNode(
-                        id = "io-work",
-                        displayName = "launch (IO)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    ),
-                    CoroutineNode(
-                        id = "ui-work",
-                        displayName = "launch (Main (concept))",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    ),
-                    CoroutineNode(
-                        id = "switcher",
-                        displayName = "launch (switcher)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New,
-                        children = listOf(
-                            CoroutineNode(
-                                id = "ctx-default",
-                                displayName = "withContext(Default)",
-                                builder = BuilderType.CoroutineScope,
-                                jobType = JobType.Job,
-                                initialState = JobState.New
-                            ),
-                            CoroutineNode(
-                                id = "ctx-io",
-                                displayName = "withContext(IO)",
-                                builder = BuilderType.CoroutineScope,
-                                jobType = JobType.Job,
-                                initialState = JobState.New
-                            )
-                        )
-                    )
+            val tree = node("root", "runBlocking", BuilderType.RunBlocking,
+                node("cpu-work", "launch (Default)", BuilderType.Launch),
+                node("io-work", "launch (IO)", BuilderType.Launch),
+                node("ui-work", "launch (Main (concept))", BuilderType.Launch),
+                node("switcher", "launch (switcher)", BuilderType.Launch,
+                    node("ctx-default", "withContext(Default)", BuilderType.CoroutineScope),
+                    node("ctx-io", "withContext(IO)", BuilderType.CoroutineScope)
                 )
             )
 
@@ -611,8 +520,7 @@ class DispatchersScenario : Scenario {
                 }
             """.trimIndent()
 
-            EventTimeline(
-                scenarioName = info.name,
+            timeline(
                 tree = tree,
                 events = events,
                 kotlinCode = kotlinCode

@@ -13,31 +13,17 @@ class ScopeComparisonScenario : Scenario {
 
     override fun buildTimeline(): EventTimeline {
         // Left tree: coroutineScope
-        val tree1 = CoroutineNode(
-            id = "cs-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "cs-child-1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cs-child-2", displayName = "launch #2 (fails)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cs-child-3", displayName = "launch #3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val tree1 = node("cs-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("cs-child-1", "launch #1", BuilderType.Launch),
+            node("cs-child-2", "launch #2 (fails)", BuilderType.Launch),
+            node("cs-child-3", "launch #3", BuilderType.Launch)
         )
 
         // Right tree: supervisorScope
-        val tree2 = CoroutineNode(
-            id = "ss-root",
-            displayName = "supervisorScope",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "ss-child-1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "ss-child-2", displayName = "launch #2 (fails)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "ss-child-3", displayName = "launch #3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val tree2 = supervisorNode("ss-root", "supervisorScope", BuilderType.SupervisorScope,
+            node("ss-child-1", "launch #1", BuilderType.Launch),
+            node("ss-child-2", "launch #2 (fails)", BuilderType.Launch),
+            node("ss-child-3", "launch #3", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -82,8 +68,7 @@ class ScopeComparisonScenario : Scenario {
             NarrativeEvent(3100, "coroutineScope: all-or-nothing | supervisorScope: independent children")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree1,
             secondTree = tree2,
             events = events,
@@ -115,28 +100,14 @@ supervisorScope {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree1 = CoroutineNode(
-            id = "cs-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "cs-child-1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cs-child-2", displayName = "launch #2 (fails)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val tree1 = node("cs-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("cs-child-1", "launch #1", BuilderType.Launch),
+            node("cs-child-2", "launch #2 (fails)", BuilderType.Launch)
         )
 
-        val tree2 = CoroutineNode(
-            id = "ss-root",
-            displayName = "supervisorScope",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "ss-child-1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "ss-child-2", displayName = "launch #2 (fails)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val tree2 = supervisorNode("ss-root", "supervisorScope", BuilderType.SupervisorScope,
+            node("ss-child-1", "launch #1", BuilderType.Launch),
+            node("ss-child-2", "launch #2 (fails)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -174,8 +145,7 @@ supervisorScope {
             NarrativeEvent(2700, "coroutineScope: cancelled everything | supervisorScope: only the failing child stopped")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree1,
             secondTree = tree2,
             events = events,
@@ -198,42 +168,22 @@ supervisorScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree1 = CoroutineNode(
-            id = "cs-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "cs-child-1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(id = "cs-grandchild-1a", displayName = "launch #1a", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                        CoroutineNode(id = "cs-grandchild-1b", displayName = "launch #1b", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-                    )
-                ),
-                CoroutineNode(id = "cs-child-2", displayName = "launch #2 (fails)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cs-child-3", displayName = "launch #3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val tree1 = node("cs-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("cs-child-1", "launch #1", BuilderType.Launch,
+                node("cs-grandchild-1a", "launch #1a", BuilderType.Launch),
+                node("cs-grandchild-1b", "launch #1b", BuilderType.Launch)
+            ),
+            node("cs-child-2", "launch #2 (fails)", BuilderType.Launch),
+            node("cs-child-3", "launch #3", BuilderType.Launch)
         )
 
-        val tree2 = CoroutineNode(
-            id = "ss-root",
-            displayName = "supervisorScope",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "ss-child-1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(id = "ss-grandchild-1a", displayName = "launch #1a", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                        CoroutineNode(id = "ss-grandchild-1b", displayName = "launch #1b", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-                    )
-                ),
-                CoroutineNode(id = "ss-child-2", displayName = "launch #2 (fails)", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "ss-child-3", displayName = "launch #3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val tree2 = supervisorNode("ss-root", "supervisorScope", BuilderType.SupervisorScope,
+            node("ss-child-1", "launch #1", BuilderType.Launch,
+                node("ss-grandchild-1a", "launch #1a", BuilderType.Launch),
+                node("ss-grandchild-1b", "launch #1b", BuilderType.Launch)
+            ),
+            node("ss-child-2", "launch #2 (fails)", BuilderType.Launch),
+            node("ss-child-3", "launch #3", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -293,8 +243,7 @@ supervisorScope {
             NarrativeEvent(3600, "coroutineScope: entire tree destroyed | supervisorScope: only the failing child stopped, nested coroutines completed")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree1,
             secondTree = tree2,
             events = events,

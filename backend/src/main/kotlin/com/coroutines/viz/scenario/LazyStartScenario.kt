@@ -21,28 +21,9 @@ class LazyStartScenario : Scenario {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "eager",
-                    displayName = "launch (eager)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "lazy",
-                    displayName = "launch (LAZY)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("eager", "launch (eager)", BuilderType.Launch),
+            node("lazy", "launch (LAZY)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -62,8 +43,7 @@ class LazyStartScenario : Scenario {
             NarrativeEvent(2900, "Key insight: lazy coroutines exist as a Job in New state but don't run until .start(), .join(), or (for async) .await() transitions them to Active.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -87,35 +67,10 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildIntermediateTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "by-start",
-                    displayName = "launch LAZY (.start)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "by-join",
-                    displayName = "launch LAZY (.join)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "by-await",
-                    displayName = "async LAZY (.await)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("by-start", "launch LAZY (.start)", BuilderType.Launch),
+            node("by-join", "launch LAZY (.join)", BuilderType.Launch),
+            node("by-await", "async LAZY (.await)", BuilderType.Async)
         )
 
         val events = listOf(
@@ -140,8 +95,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(3500, "Summary: .start() fires the coroutine and returns. .join() / .await() also fire it but suspend the caller until done. All three transition New → Active.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -174,28 +128,9 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "lazy-started",
-                    displayName = "launch LAZY #1 (.start)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "lazy-forgotten",
-                    displayName = "launch LAZY #2 (FORGOTTEN)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("lazy-started", "launch LAZY #1 (.start)", BuilderType.Launch),
+            node("lazy-forgotten", "launch LAZY #2 (FORGOTTEN)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -217,8 +152,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(3800, "Lesson: a lazy Job is part of structured concurrency — its parent waits for it. If you create one, you MUST eventually .start() it, .cancel() it, or use a try/finally to guarantee it. Forgetting silently deadlocks the scope.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """

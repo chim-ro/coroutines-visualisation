@@ -23,22 +23,14 @@ class ThreadsVsCoroutinesScenario : Scenario {
     // ── Beginner: 2 tasks ──────────────────────────────────────────
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val syncTree = CoroutineNode(
-            id = "sync-root", displayName = "main (threads)", builder = BuilderType.RunBlocking,
-            jobType = JobType.Job, initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "sync-task1", displayName = "task 1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "sync-task2", displayName = "task 2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val syncTree = node("sync-root", "main (threads)", BuilderType.RunBlocking,
+            node("sync-task1", "task 1", BuilderType.Launch),
+            node("sync-task2", "task 2", BuilderType.Launch)
         )
 
-        val crTree = CoroutineNode(
-            id = "cr-root", displayName = "runBlocking", builder = BuilderType.RunBlocking,
-            jobType = JobType.Job, initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "cr-task1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cr-task2", displayName = "launch #2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val crTree = node("cr-root", "runBlocking", BuilderType.RunBlocking,
+            node("cr-task1", "launch #1", BuilderType.Launch),
+            node("cr-task2", "launch #2", BuilderType.Launch)
         )
 
         // Thread lanes — LEFT: threads approach
@@ -107,8 +99,7 @@ class ThreadsVsCoroutinesScenario : Scenario {
             NarrativeEvent(1200, "Same speed (~1000ms) but coroutines used 1 thread vs 3!")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = syncTree,
             secondTree = crTree,
             events = events,
@@ -138,24 +129,16 @@ fun main() = runBlocking {
     // ── Intermediate: 3 tasks ──────────────────────────────────────
 
     private fun buildIntermediateTimeline(): EventTimeline {
-        val syncTree = CoroutineNode(
-            id = "sync-root", displayName = "main (threads)", builder = BuilderType.RunBlocking,
-            jobType = JobType.Job, initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "sync-task1", displayName = "task 1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "sync-task2", displayName = "task 2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "sync-task3", displayName = "task 3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val syncTree = node("sync-root", "main (threads)", BuilderType.RunBlocking,
+            node("sync-task1", "task 1", BuilderType.Launch),
+            node("sync-task2", "task 2", BuilderType.Launch),
+            node("sync-task3", "task 3", BuilderType.Launch)
         )
 
-        val crTree = CoroutineNode(
-            id = "cr-root", displayName = "runBlocking", builder = BuilderType.RunBlocking,
-            jobType = JobType.Job, initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "cr-task1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cr-task2", displayName = "launch #2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cr-task3", displayName = "launch #3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val crTree = node("cr-root", "runBlocking", BuilderType.RunBlocking,
+            node("cr-task1", "launch #1", BuilderType.Launch),
+            node("cr-task2", "launch #2", BuilderType.Launch),
+            node("cr-task3", "launch #3", BuilderType.Launch)
         )
 
         val totalDuration = 1300L
@@ -231,8 +214,7 @@ fun main() = runBlocking {
             NarrativeEvent(1300, "Same speed (~1000ms) but coroutines used 1 thread vs 4!")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = syncTree,
             secondTree = crTree,
             events = events,
@@ -264,31 +246,20 @@ fun main() = runBlocking {
     // ── Advanced: 4 tasks + withContext(IO) ─────────────────────────
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val syncTree = CoroutineNode(
-            id = "sync-root", displayName = "main (threads)", builder = BuilderType.RunBlocking,
-            jobType = JobType.Job, initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(id = "sync-task1", displayName = "task 1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "sync-task2", displayName = "task 2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "sync-task3", displayName = "task 3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "sync-task4", displayName = "task 4", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val syncTree = node("sync-root", "main (threads)", BuilderType.RunBlocking,
+            node("sync-task1", "task 1", BuilderType.Launch),
+            node("sync-task2", "task 2", BuilderType.Launch),
+            node("sync-task3", "task 3", BuilderType.Launch),
+            node("sync-task4", "task 4", BuilderType.Launch)
         )
 
-        val crTree = CoroutineNode(
-            id = "cr-root", displayName = "runBlocking", builder = BuilderType.RunBlocking,
-            jobType = JobType.Job, initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "cr-task1", displayName = "launch #1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(id = "cr-task1-io", displayName = "withContext(IO)", builder = BuilderType.CoroutineScope, jobType = JobType.Job, initialState = JobState.New)
-                    )
-                ),
-                CoroutineNode(id = "cr-task2", displayName = "launch #2", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cr-task3", displayName = "launch #3", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New),
-                CoroutineNode(id = "cr-task4", displayName = "launch #4", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-            )
+        val crTree = node("cr-root", "runBlocking", BuilderType.RunBlocking,
+            node("cr-task1", "launch #1", BuilderType.Launch,
+                node("cr-task1-io", "withContext(IO)", BuilderType.CoroutineScope)
+            ),
+            node("cr-task2", "launch #2", BuilderType.Launch),
+            node("cr-task3", "launch #3", BuilderType.Launch),
+            node("cr-task4", "launch #4", BuilderType.Launch)
         )
 
         val totalDuration = 1400L
@@ -388,8 +359,7 @@ fun main() = runBlocking {
             NarrativeEvent(1400, "Same speed — coroutines used 2 threads vs 5, and only borrowed IO thread briefly!")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = syncTree,
             secondTree = crTree,
             events = events,

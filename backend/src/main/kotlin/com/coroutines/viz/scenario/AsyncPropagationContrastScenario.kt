@@ -22,38 +22,12 @@ class AsyncPropagationContrastScenario : Scenario {
 
     // ── Beginner: just the contrast — exception goes up vs. doesn't ──────
     private fun buildBeginnerTimeline(): EventTimeline {
-        val left = CoroutineNode(
-            id = "cs-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "cs-async",
-                    displayName = "async (fails)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val left = node("cs-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("cs-async", "async (fails)", BuilderType.Async)
         )
 
-        val right = CoroutineNode(
-            id = "ss-root",
-            displayName = "supervisorScope",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "ss-async",
-                    displayName = "async (fails)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val right = supervisorNode("ss-root", "supervisorScope", BuilderType.SupervisorScope,
+            node("ss-async", "async (fails)", BuilderType.Async)
         )
 
         val events = listOf(
@@ -80,8 +54,7 @@ class AsyncPropagationContrastScenario : Scenario {
             NarrativeEvent(2900, "Takeaway: under coroutineScope, async failures propagate automatically. Under supervisorScope, they are held in the Deferred — you MUST call .await() to surface them. Forgetting to await is a silent-bug source.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = left,
             secondTree = right,
             events = events,
@@ -109,52 +82,14 @@ suspend fun right() = supervisorScope {
 
     // ── Intermediate: add a sibling, observe what happens to it ──────────
     private fun buildIntermediateTimeline(): EventTimeline {
-        val left = CoroutineNode(
-            id = "cs-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "cs-async",
-                    displayName = "async (fails)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "cs-sibling",
-                    displayName = "launch (sibling)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val left = node("cs-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("cs-async", "async (fails)", BuilderType.Async),
+            node("cs-sibling", "launch (sibling)", BuilderType.Launch)
         )
 
-        val right = CoroutineNode(
-            id = "ss-root",
-            displayName = "supervisorScope",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "ss-async",
-                    displayName = "async (fails)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "ss-sibling",
-                    displayName = "launch (sibling)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val right = supervisorNode("ss-root", "supervisorScope", BuilderType.SupervisorScope,
+            node("ss-async", "async (fails)", BuilderType.Async),
+            node("ss-sibling", "launch (sibling)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -189,8 +124,7 @@ suspend fun right() = supervisorScope {
             NarrativeEvent(3500, "Same exception, two outcomes: LEFT cancelled everything (siblings paid the price). RIGHT preserved the sibling's work but lost the error. Pick the parent that matches your intent.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = left,
             secondTree = right,
             events = events,
@@ -226,66 +160,16 @@ suspend fun right() = supervisorScope {
 
     // ── Advanced: add await() — see the right side finally rethrow ──────
     private fun buildAdvancedTimeline(): EventTimeline {
-        val left = CoroutineNode(
-            id = "cs-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "cs-async",
-                    displayName = "async (fails)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "cs-sibling-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "cs-sibling-2",
-                    displayName = "launch #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val left = node("cs-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("cs-async", "async (fails)", BuilderType.Async),
+            node("cs-sibling-1", "launch #1", BuilderType.Launch),
+            node("cs-sibling-2", "launch #2", BuilderType.Launch)
         )
 
-        val right = CoroutineNode(
-            id = "ss-root",
-            displayName = "supervisorScope",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "ss-async",
-                    displayName = "async (fails)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "ss-sibling-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "ss-sibling-2",
-                    displayName = "launch #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val right = supervisorNode("ss-root", "supervisorScope", BuilderType.SupervisorScope,
+            node("ss-async", "async (fails)", BuilderType.Async),
+            node("ss-sibling-1", "launch #1", BuilderType.Launch),
+            node("ss-sibling-2", "launch #2", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -330,8 +214,7 @@ suspend fun right() = supervisorScope {
             NarrativeEvent(3800, "Summary: LEFT loses sibling work; RIGHT preserves sibling work but the await still throws at the end. Both scopes end Cancelled in this case — but the WORK DONE before the throw is the critical difference.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = left,
             secondTree = right,
             events = events,

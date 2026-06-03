@@ -12,47 +12,16 @@ class CoroutineContextScenario : Scenario {
     )
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-inherits",
-                    displayName = "launch #1 (inherits)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-named",
-                    displayName = "launch #2 (named)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-broken",
-                    displayName = "launch #3",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-inherits", "launch #1 (inherits)", BuilderType.Launch),
+            node("child-named", "launch #2 (named)", BuilderType.Launch),
+            node("child-broken", "launch #3", BuilderType.Launch)
         )
 
         // launch(Job()) is shown as a DETACHED tree — it is launched
         // lexically inside launch #3, but its Job is a standalone Job(),
         // so it is NOT structurally a child of any other coroutine.
-        val orphanTree = CoroutineNode(
-            id = "orphan",
-            displayName = "launch(Job()) — detached",
-            builder = BuilderType.Launch,
-            jobType = JobType.Job,
-            initialState = JobState.New
-        )
+        val orphanTree = node("orphan", "launch(Job()) — detached", BuilderType.Launch)
 
         val events = listOf(
             NarrativeEvent(
@@ -221,8 +190,7 @@ class CoroutineContextScenario : Scenario {
             }
         """.trimIndent()
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             secondTree = orphanTree,
             events = events,
@@ -238,21 +206,8 @@ class CoroutineContextScenario : Scenario {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-inherits",
-                    displayName = "launch (inherits)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-inherits", "launch (inherits)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -308,8 +263,7 @@ class CoroutineContextScenario : Scenario {
             )
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -329,54 +283,17 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-inherits",
-                    displayName = "launch #1 (inherits)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-named",
-                    displayName = "launch #2 (CoroutineName)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-dispatched",
-                    displayName = "launch #3 (Dispatchers.Default)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-broken",
-                    displayName = "launch #4",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-inherits", "launch #1 (inherits)", BuilderType.Launch),
+            node("child-named", "launch #2 (CoroutineName)", BuilderType.Launch),
+            node("child-dispatched", "launch #3 (Dispatchers.Default)", BuilderType.Launch),
+            node("child-broken", "launch #4", BuilderType.Launch)
         )
 
         // launch(Job()) is shown as a DETACHED tree — it is launched
         // lexically inside launch #4, but its Job is a standalone Job(),
         // so it is NOT structurally a child of any other coroutine.
-        val orphanTree = CoroutineNode(
-            id = "orphan",
-            displayName = "launch(Job()) — detached",
-            builder = BuilderType.Launch,
-            jobType = JobType.Job,
-            initialState = JobState.New
-        )
+        val orphanTree = node("orphan", "launch(Job()) — detached", BuilderType.Launch)
 
         val events = listOf(
             StateChangeEvent(
@@ -535,8 +452,7 @@ suspend fun main() = coroutineScope {
             )
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             secondTree = orphanTree,
             events = events,

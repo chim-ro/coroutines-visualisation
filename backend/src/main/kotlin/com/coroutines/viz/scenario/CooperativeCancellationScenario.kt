@@ -21,21 +21,8 @@ class CooperativeCancellationScenario : Scenario {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child",
-                    displayName = "launch (cooperative)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child", "launch (cooperative)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -53,8 +40,7 @@ class CooperativeCancellationScenario : Scenario {
             NarrativeEvent(2000, "Cooperative cancellation: coroutine checks for cancellation at suspension points")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -77,38 +63,12 @@ coroutineScope {
 
     private fun buildIntermediateTimeline(): EventTimeline {
         // Dual-tree: cooperative vs non-cooperative
-        val tree1 = CoroutineNode(
-            id = "coop-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "coop-child",
-                    displayName = "launch (cooperative)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree1 = node("coop-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("coop-child", "launch (cooperative)", BuilderType.Launch)
         )
 
-        val tree2 = CoroutineNode(
-            id = "noncoop-root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "noncoop-child",
-                    displayName = "launch (non-cooperative)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree2 = node("noncoop-root", "coroutineScope", BuilderType.CoroutineScope,
+            node("noncoop-child", "launch (non-cooperative)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -138,8 +98,7 @@ coroutineScope {
             NarrativeEvent(2900, "Both children ended in Cancelled — the difference is whether the body cooperated (left stopped early) or not (right ran to the end but still ends Cancelled)")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree1,
             secondTree = tree2,
             events = events,
@@ -170,35 +129,10 @@ coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch #1 (ensureActive)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch #2 (isActive)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-3",
-                    displayName = "launch #3 (non-cooperative)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-1", "launch #1 (ensureActive)", BuilderType.Launch),
+            node("child-2", "launch #2 (isActive)", BuilderType.Launch),
+            node("child-3", "launch #3 (non-cooperative)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -229,8 +163,7 @@ coroutineScope {
             NarrativeEvent(3100, "A fourth option: yield() — like ensureActive() it throws on cancellation, AND it gives other coroutines a chance to run by rotating the dispatcher queue. Prefer yield() in long CPU-bound loops where you also want cooperative scheduling.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """

@@ -21,21 +21,8 @@ class NonCancellableContextScenario : Scenario {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child",
-                    displayName = "launch (cleanup)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child", "launch (cleanup)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -54,8 +41,7 @@ class NonCancellableContextScenario : Scenario {
             NarrativeEvent(2300, "NonCancellable allows suspend calls during cancellation — essential for cleanup")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -79,28 +65,9 @@ coroutineScope {
     }
 
     private fun buildIntermediateTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch #1 (normal)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch #2 (NonCancellable)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-1", "launch #1 (normal)", BuilderType.Launch),
+            node("child-2", "launch #2 (NonCancellable)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -124,8 +91,7 @@ coroutineScope {
             NarrativeEvent(2500, "Child #1 stopped instantly — child #2 finished cleanup first. NonCancellable gives time for orderly shutdown.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -158,29 +124,9 @@ coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child",
-                    displayName = "launch (cleanup)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "cleanup-child",
-                            displayName = "launch (inside NonCancellable)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child", "launch (cleanup)", BuilderType.Launch,
+                node("cleanup-child", "launch (inside NonCancellable)", BuilderType.Launch)
             )
         )
 
@@ -204,8 +150,7 @@ coroutineScope {
             NarrativeEvent(2700, "Key insight: NonCancellable creates a fresh scope — you can launch new coroutines for cleanup tasks")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """

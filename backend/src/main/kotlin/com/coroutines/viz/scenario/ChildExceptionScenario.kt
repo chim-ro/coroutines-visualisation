@@ -12,35 +12,10 @@ class ChildExceptionScenario : Scenario {
     )
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch #2 (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-3",
-                    displayName = "async #3",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-1", "launch #1", BuilderType.Launch),
+            node("child-2", "launch #2 (fails)", BuilderType.Launch),
+            node("child-3", "async #3", BuilderType.Async)
         )
 
         val events = listOf(
@@ -65,8 +40,7 @@ class ChildExceptionScenario : Scenario {
             NarrativeEvent(2500, "Exceptions propagate UPWARD, then cancellation flows DOWNWARD to siblings")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -99,21 +73,8 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child",
-                    displayName = "launch (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child", "launch (fails)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -129,8 +90,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(1600, "The exception propagated from child to parent, cancelling the entire scope")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -146,51 +106,13 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "grandchild",
-                            displayName = "launch (fails)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                ),
-                CoroutineNode(
-                    id = "child-3",
-                    displayName = "async #3",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-4",
-                    displayName = "launch #4",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-1", "launch #1", BuilderType.Launch),
+            node("child-2", "launch #2", BuilderType.Launch,
+                node("grandchild", "launch (fails)", BuilderType.Launch)
+            ),
+            node("child-3", "async #3", BuilderType.Async),
+            node("child-4", "launch #4", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -223,8 +145,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(3500, "Exception propagated from grandchild → child-2 → root, then cancellation flowed down to all siblings")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """

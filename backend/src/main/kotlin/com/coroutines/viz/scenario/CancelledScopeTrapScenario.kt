@@ -22,28 +22,9 @@ class CancelledScopeTrapScenario : Scenario {
 
     // ── Beginner: explicit cancel, then a ghost launch ───────────────────
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "scope",
-            displayName = "CoroutineScope(Job())",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "first",
-                    displayName = "launch #1 (real)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "ghost",
-                    displayName = "launch #2 (attempted AFTER cancel)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("scope", "CoroutineScope(Job())", BuilderType.CoroutineScope,
+            node("first", "launch #1 (real)", BuilderType.Launch),
+            node("ghost", "launch #2 (attempted AFTER cancel)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -61,8 +42,7 @@ class CancelledScopeTrapScenario : Scenario {
             NarrativeEvent(2500, "Mitigations: (1) check scope.isActive before launching, (2) use a SupervisorJob in the scope so child failures don't kill it, (3) recreate the scope when needed, (4) prefer structured coroutineScope { } over long-lived custom scopes when you can.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -86,42 +66,11 @@ scope.launch {              // #2 — SILENTLY DROPPED
 
     // ── Intermediate: scope killed by child failure (Job, not SupervisorJob) ──
     private fun buildIntermediateTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "scope",
-            displayName = "CoroutineScope(Job())",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "action-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "action-fails",
-                    displayName = "launch #2 (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "action-3-ghost",
-                    displayName = "launch #3 (ghost)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "action-4-ghost",
-                    displayName = "launch #4 (ghost)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("scope", "CoroutineScope(Job())", BuilderType.CoroutineScope,
+            node("action-1", "launch #1", BuilderType.Launch),
+            node("action-fails", "launch #2 (fails)", BuilderType.Launch),
+            node("action-3-ghost", "launch #3 (ghost)", BuilderType.Launch),
+            node("action-4-ghost", "launch #4 (ghost)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -144,8 +93,7 @@ scope.launch {              // #2 — SILENTLY DROPPED
             NarrativeEvent(3300, "Fix: use CoroutineScope(SupervisorJob()) — then action #2's failure stays isolated and the scope stays Active for actions #3 and #4. (See the Advanced level for a side-by-side.)")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -178,35 +126,10 @@ class MyViewModel {
     // ── Advanced: side-by-side — Job() (vulnerable) vs SupervisorJob() (resilient) ──
     private fun buildAdvancedTimeline(): EventTimeline {
         // LEFT — CoroutineScope(Job()) — vulnerable to silent drops
-        val left = CoroutineNode(
-            id = "j-scope",
-            displayName = "CoroutineScope(Job())",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "j-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "j-2",
-                    displayName = "launch #2 (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "j-3",
-                    displayName = "launch #3 (after failure)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val left = node("j-scope", "CoroutineScope(Job())", BuilderType.CoroutineScope,
+            node("j-1", "launch #1", BuilderType.Launch),
+            node("j-2", "launch #2 (fails)", BuilderType.Launch),
+            node("j-3", "launch #3 (after failure)", BuilderType.Launch)
         )
 
         // RIGHT — CoroutineScope(SupervisorJob()) — resilient.
@@ -214,35 +137,10 @@ class MyViewModel {
         // NOT the supervisorScope { } builder. We model it as BuilderType.CoroutineScope
         // (the factory function) + JobType.SupervisorJob (the internal Job), matching
         // the convention in ExternalScopeScenario.
-        val right = CoroutineNode(
-            id = "s-scope",
-            displayName = "CoroutineScope(SupervisorJob())",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "s-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "s-2",
-                    displayName = "launch #2 (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "s-3",
-                    displayName = "launch #3 (after failure)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val right = supervisorNode("s-scope", "CoroutineScope(SupervisorJob())", BuilderType.CoroutineScope,
+            node("s-1", "launch #1", BuilderType.Launch),
+            node("s-2", "launch #2 (fails)", BuilderType.Launch),
+            node("s-3", "launch #3 (after failure)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -287,8 +185,7 @@ class MyViewModel {
             NarrativeEvent(3500, "Rule of thumb: for long-lived application/ViewModel scopes, ALWAYS use CoroutineScope(SupervisorJob() + ...). One badly-thrown exception in a child should not poison the entire scope.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = left,
             secondTree = right,
             events = events,

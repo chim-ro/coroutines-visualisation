@@ -22,23 +22,10 @@ class JobFactoryTrapScenario : Scenario {
 
     // ── Beginner: child finishes, but Job() stays Active until complete() ──
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "manual-job",
-            displayName = "Job() — manual",
-            // Visualized as a CoroutineScope-shaped container; in reality
-            // Job() creates a CompletableJob with no body of its own.
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child",
-                    displayName = "launch(job)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        // Visualized as a CoroutineScope-shaped container; in reality
+        // Job() creates a CompletableJob with no body of its own.
+        val tree = node("manual-job", "Job() — manual", BuilderType.CoroutineScope,
+            node("child", "launch(job)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -55,8 +42,7 @@ class JobFactoryTrapScenario : Scenario {
             NarrativeEvent(2700, "Key insight: if you create a Job() manually, YOU are responsible for completing it. Otherwise it stays Active forever, and any job.join() on it will hang.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -81,28 +67,9 @@ suspend fun main() = coroutineScope {
 
     // ── Intermediate: job.join() hangs without complete() ────────────────
     private fun buildIntermediateTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "manual-job",
-            displayName = "Job() — manual",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch(job) #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch(job) #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("manual-job", "Job() — manual", BuilderType.CoroutineScope,
+            node("child-1", "launch(job) #1", BuilderType.Launch),
+            node("child-2", "launch(job) #2", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -123,8 +90,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(3800, "Rule: if you create a Job() manually, ALWAYS pair the creation with a complete() call (typically in try/finally), or use a scope builder instead.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -158,53 +124,15 @@ suspend fun main() = coroutineScope {
     // ── Advanced: side-by-side — manual Job() vs coroutineScope ──────────
     private fun buildAdvancedTimeline(): EventTimeline {
         // Left tree: manual Job() approach — requires explicit complete()
-        val tree = CoroutineNode(
-            id = "manual-job",
-            displayName = "Job() — manual",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "m-child-1",
-                    displayName = "launch(job) #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "m-child-2",
-                    displayName = "launch(job) #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("manual-job", "Job() — manual", BuilderType.CoroutineScope,
+            node("m-child-1", "launch(job) #1", BuilderType.Launch),
+            node("m-child-2", "launch(job) #2", BuilderType.Launch)
         )
 
         // Right tree: coroutineScope approach — auto-completes
-        val secondTree = CoroutineNode(
-            id = "auto-scope",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "a-child-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "a-child-2",
-                    displayName = "launch #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val secondTree = node("auto-scope", "coroutineScope", BuilderType.CoroutineScope,
+            node("a-child-1", "launch #1", BuilderType.Launch),
+            node("a-child-2", "launch #2", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -239,8 +167,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(3600, "Takeaway: prefer coroutineScope (or supervisorScope) over manual Job(). The structured scope handles lifecycle automatically; a manual Job needs explicit complete() AND careful try/finally discipline.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             secondTree = secondTree,
             events = events,

@@ -12,35 +12,10 @@ class SuspensionResumptionScenario : Scenario {
     )
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "runBlocking",
-            builder = BuilderType.RunBlocking,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "fetcher",
-                    displayName = "launch (fetcher)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "processor",
-                    displayName = "launch (processor)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "logger",
-                    displayName = "launch (logger)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "runBlocking", BuilderType.RunBlocking,
+            node("fetcher", "launch (fetcher)", BuilderType.Launch),
+            node("processor", "launch (processor)", BuilderType.Launch),
+            node("logger", "launch (logger)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -80,8 +55,7 @@ class SuspensionResumptionScenario : Scenario {
             StateChangeEvent(7800, "Root completed — one thread served all three coroutines via suspension", "root", JobState.Completing, JobState.Completed)
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -112,21 +86,8 @@ fun main() = runBlocking {
         "intermediate" -> buildTimeline()
 
         "beginner" -> {
-            val tree = CoroutineNode(
-                id = "root",
-                displayName = "runBlocking",
-                builder = BuilderType.RunBlocking,
-                jobType = JobType.Job,
-                initialState = JobState.New,
-                children = listOf(
-                    CoroutineNode(
-                        id = "worker",
-                        displayName = "launch (worker)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    )
-                )
+            val tree = node("root", "runBlocking", BuilderType.RunBlocking,
+                node("worker", "launch (worker)", BuilderType.Launch)
             )
 
             val events = listOf(
@@ -152,8 +113,7 @@ fun main() = runBlocking {
                 StateChangeEvent(4400, "Root completed", "root", JobState.Completing, JobState.Completed)
             )
 
-            EventTimeline(
-                scenarioName = info.name,
+            timeline(
                 tree = tree,
                 events = events,
                 kotlinCode = """
@@ -169,42 +129,11 @@ fun main() = runBlocking {
         }
 
         "advanced" -> {
-            val tree = CoroutineNode(
-                id = "root",
-                displayName = "runBlocking",
-                builder = BuilderType.RunBlocking,
-                jobType = JobType.Job,
-                initialState = JobState.New,
-                children = listOf(
-                    CoroutineNode(
-                        id = "fetcher",
-                        displayName = "launch (fetcher)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    ),
-                    CoroutineNode(
-                        id = "processor",
-                        displayName = "launch (processor)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    ),
-                    CoroutineNode(
-                        id = "logger",
-                        displayName = "launch (logger)",
-                        builder = BuilderType.Launch,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    ),
-                    CoroutineNode(
-                        id = "cache",
-                        displayName = "async (cache)",
-                        builder = BuilderType.Async,
-                        jobType = JobType.Job,
-                        initialState = JobState.New
-                    )
-                )
+            val tree = node("root", "runBlocking", BuilderType.RunBlocking,
+                node("fetcher", "launch (fetcher)", BuilderType.Launch),
+                node("processor", "launch (processor)", BuilderType.Launch),
+                node("logger", "launch (logger)", BuilderType.Launch),
+                node("cache", "async (cache)", BuilderType.Async)
             )
 
             val events = listOf(
@@ -268,8 +197,7 @@ fun main() = runBlocking {
                 StateChangeEvent(10800, "Root completed — thread reuse via multiple suspend/resume cycles", "root", JobState.Completing, JobState.Completed)
             )
 
-            EventTimeline(
-                scenarioName = info.name,
+            timeline(
                 tree = tree,
                 events = events,
                 kotlinCode = """

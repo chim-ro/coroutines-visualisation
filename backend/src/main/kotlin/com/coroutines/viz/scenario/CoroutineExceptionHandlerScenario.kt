@@ -22,32 +22,13 @@ class CoroutineExceptionHandlerScenario : Scenario {
 
     // ── Beginner: supervisorScope + CEH, one failing launch ──────────────
     private fun buildBeginnerTimeline(): EventTimeline {
-        val scope = CoroutineNode(
-            id = "scope",
-            displayName = "supervisorScope (+ CEH)",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "failing",
-                    displayName = "launch (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val scope = supervisorNode("scope", "supervisorScope (+ CEH)", BuilderType.SupervisorScope,
+            node("failing", "launch (fails)", BuilderType.Launch)
         )
 
         // The CEH is shown as a sibling tree — it's a context element, NOT a coroutine.
         // It "lights up" when invoked via an ExceptionEvent.
-        val handler = CoroutineNode(
-            id = "ceh",
-            displayName = "CoroutineExceptionHandler (context element, not a coroutine)",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New
-        )
+        val handler = node("ceh", "CoroutineExceptionHandler (context element, not a coroutine)", BuilderType.CoroutineScope)
 
         val events = listOf(
             NarrativeEvent(0, "A CoroutineExceptionHandler (CEH) is added to the scope's context. It's not a coroutine — it's a function that gets called for uncaught root exceptions. Drawn on the right for visibility."),
@@ -65,8 +46,7 @@ class CoroutineExceptionHandlerScenario : Scenario {
             NarrativeEvent(2000, "Key: install the CEH on the scope (typically in CoroutineScope(SupervisorJob() + handler)). Installing it on individual launches is mostly useless — by the time the launch fails, its CEH is irrelevant.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = scope,
             secondTree = handler,
             events = events,
@@ -90,37 +70,12 @@ suspend fun main() = supervisorScope {
 
     // ── Intermediate: launch vs async — CEH catches launch only ──────────
     private fun buildIntermediateTimeline(): EventTimeline {
-        val scope = CoroutineNode(
-            id = "scope",
-            displayName = "supervisorScope (+ CEH)",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "launch-fails",
-                    displayName = "launch (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "async-fails",
-                    displayName = "async (fails — no await)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val scope = supervisorNode("scope", "supervisorScope (+ CEH)", BuilderType.SupervisorScope,
+            node("launch-fails", "launch (fails)", BuilderType.Launch),
+            node("async-fails", "async (fails — no await)", BuilderType.Async)
         )
 
-        val handler = CoroutineNode(
-            id = "ceh",
-            displayName = "CoroutineExceptionHandler",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New
-        )
+        val handler = node("ceh", "CoroutineExceptionHandler", BuilderType.CoroutineScope)
 
         val events = listOf(
             NarrativeEvent(0, "Same scope, two children: a launch and an async. Both throw the SAME exception. The CEH only sees one of them. Which?"),
@@ -141,8 +96,7 @@ suspend fun main() = supervisorScope {
             NarrativeEvent(2500, "Rule: launch exceptions go to the CEH (fire-and-forget channel). async exceptions are held in the Deferred (opt-in channel via await). If you have a critical async, ALWAYS await it — otherwise its errors disappear.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = scope,
             secondTree = handler,
             events = events,
@@ -167,67 +121,17 @@ suspend fun main() = supervisorScope {
 
     // ── Advanced: mixed children + nested propagation ────────────────────
     private fun buildAdvancedTimeline(): EventTimeline {
-        val scope = CoroutineNode(
-            id = "scope",
-            displayName = "supervisorScope (+ CEH)",
-            builder = BuilderType.SupervisorScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "ok-launch",
-                    displayName = "launch (succeeds)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "bad-launch",
-                    displayName = "launch (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "nest-parent",
-                    displayName = "launch (parent)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "nest-child",
-                            displayName = "launch (nested, fails)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                ),
-                CoroutineNode(
-                    id = "async-awaited",
-                    displayName = "async (fails, awaited)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "async-orphan",
-                    displayName = "async (fails, NEVER awaited)",
-                    builder = BuilderType.Async,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val scope = supervisorNode("scope", "supervisorScope (+ CEH)", BuilderType.SupervisorScope,
+            node("ok-launch", "launch (succeeds)", BuilderType.Launch),
+            node("bad-launch", "launch (fails)", BuilderType.Launch),
+            node("nest-parent", "launch (parent)", BuilderType.Launch,
+                node("nest-child", "launch (nested, fails)", BuilderType.Launch)
+            ),
+            node("async-awaited", "async (fails, awaited)", BuilderType.Async),
+            node("async-orphan", "async (fails, NEVER awaited)", BuilderType.Async)
         )
 
-        val handler = CoroutineNode(
-            id = "ceh",
-            displayName = "CoroutineExceptionHandler",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New
-        )
+        val handler = node("ceh", "CoroutineExceptionHandler", BuilderType.CoroutineScope)
 
         val events = listOf(
             NarrativeEvent(0, "Five children. Watch which exceptions reach the CEH and which don't."),
@@ -276,8 +180,7 @@ suspend fun main() = supervisorScope {
             NarrativeEvent(4200, "Summary: CEH was invoked TWICE — once for bad-launch directly, once for nest-parent (which received nest-child's exception). Neither async invoked it. async-awaited surfaced via .await(); async-orphan was silently lost.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = scope,
             secondTree = handler,
             events = events,

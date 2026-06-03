@@ -12,50 +12,16 @@ class NestedScopesScenario : Scenario {
     )
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "supervisor",
-                    displayName = "supervisorScope",
-                    builder = BuilderType.SupervisorScope,
-                    jobType = JobType.SupervisorJob,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "branch-a",
-                            displayName = "launch A",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New,
-                            children = listOf(
-                                CoroutineNode(id = "a1", displayName = "async A1", builder = BuilderType.Async, jobType = JobType.Job, initialState = JobState.New),
-                                CoroutineNode(id = "a2", displayName = "async A2", builder = BuilderType.Async, jobType = JobType.Job, initialState = JobState.New)
-                            )
-                        ),
-                        CoroutineNode(
-                            id = "branch-b",
-                            displayName = "launch B (fails)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New,
-                            children = listOf(
-                                CoroutineNode(id = "b1", displayName = "launch B1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-                            )
-                        ),
-                        CoroutineNode(
-                            id = "branch-c",
-                            displayName = "launch C",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            supervisorNode("supervisor", "supervisorScope", BuilderType.SupervisorScope,
+                node("branch-a", "launch A", BuilderType.Launch,
+                    node("a1", "async A1", BuilderType.Async),
+                    node("a2", "async A2", BuilderType.Async)
+                ),
+                node("branch-b", "launch B (fails)", BuilderType.Launch,
+                    node("b1", "launch B1", BuilderType.Launch)
+                ),
+                node("branch-c", "launch C", BuilderType.Launch)
             )
         )
 
@@ -92,8 +58,7 @@ class NestedScopesScenario : Scenario {
             NarrativeEvent(3400, "SupervisorJob at level 2 contained the failure — siblings completed normally")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -126,36 +91,10 @@ suspend fun main() = coroutineScope {
         "intermediate" -> buildTimeline()
 
         "beginner" -> {
-            val tree = CoroutineNode(
-                id = "root",
-                displayName = "coroutineScope",
-                builder = BuilderType.CoroutineScope,
-                jobType = JobType.Job,
-                initialState = JobState.New,
-                children = listOf(
-                    CoroutineNode(
-                        id = "supervisor",
-                        displayName = "supervisorScope",
-                        builder = BuilderType.SupervisorScope,
-                        jobType = JobType.SupervisorJob,
-                        initialState = JobState.New,
-                        children = listOf(
-                            CoroutineNode(
-                                id = "child-a",
-                                displayName = "launch A",
-                                builder = BuilderType.Launch,
-                                jobType = JobType.Job,
-                                initialState = JobState.New
-                            ),
-                            CoroutineNode(
-                                id = "child-b",
-                                displayName = "launch B (fails)",
-                                builder = BuilderType.Launch,
-                                jobType = JobType.Job,
-                                initialState = JobState.New
-                            )
-                        )
-                    )
+            val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+                supervisorNode("supervisor", "supervisorScope", BuilderType.SupervisorScope,
+                    node("child-a", "launch A", BuilderType.Launch),
+                    node("child-b", "launch B (fails)", BuilderType.Launch)
                 )
             )
 
@@ -179,8 +118,7 @@ suspend fun main() = coroutineScope {
                 NarrativeEvent(2600, "SupervisorJob contained the failure — the surviving child completed normally")
             )
 
-            EventTimeline(
-                scenarioName = info.name,
+            timeline(
                 tree = tree,
                 events = events,
                 kotlinCode = """
@@ -201,61 +139,19 @@ suspend fun main() = coroutineScope {
         }
 
         "advanced" -> {
-            val tree = CoroutineNode(
-                id = "root",
-                displayName = "coroutineScope",
-                builder = BuilderType.CoroutineScope,
-                jobType = JobType.Job,
-                initialState = JobState.New,
-                children = listOf(
-                    CoroutineNode(
-                        id = "supervisor",
-                        displayName = "supervisorScope",
-                        builder = BuilderType.SupervisorScope,
-                        jobType = JobType.SupervisorJob,
-                        initialState = JobState.New,
-                        children = listOf(
-                            CoroutineNode(
-                                id = "branch-a",
-                                displayName = "launch A",
-                                builder = BuilderType.Launch,
-                                jobType = JobType.Job,
-                                initialState = JobState.New,
-                                children = listOf(
-                                    CoroutineNode(
-                                        id = "scope-a",
-                                        displayName = "coroutineScope",
-                                        builder = BuilderType.CoroutineScope,
-                                        jobType = JobType.Job,
-                                        initialState = JobState.New,
-                                        children = listOf(
-                                            CoroutineNode(id = "a1", displayName = "async A1", builder = BuilderType.Async, jobType = JobType.Job, initialState = JobState.New),
-                                            CoroutineNode(id = "a2", displayName = "async A2", builder = BuilderType.Async, jobType = JobType.Job, initialState = JobState.New)
-                                        )
-                                    )
-                                )
-                            ),
-                            CoroutineNode(
-                                id = "branch-b",
-                                displayName = "launch B (fails)",
-                                builder = BuilderType.Launch,
-                                jobType = JobType.Job,
-                                initialState = JobState.New,
-                                children = listOf(
-                                    CoroutineNode(id = "b1", displayName = "launch B1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-                                )
-                            ),
-                            CoroutineNode(
-                                id = "branch-c",
-                                displayName = "launch C",
-                                builder = BuilderType.Launch,
-                                jobType = JobType.Job,
-                                initialState = JobState.New,
-                                children = listOf(
-                                    CoroutineNode(id = "c1", displayName = "launch C1", builder = BuilderType.Launch, jobType = JobType.Job, initialState = JobState.New)
-                                )
-                            )
+            val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+                supervisorNode("supervisor", "supervisorScope", BuilderType.SupervisorScope,
+                    node("branch-a", "launch A", BuilderType.Launch,
+                        node("scope-a", "coroutineScope", BuilderType.CoroutineScope,
+                            node("a1", "async A1", BuilderType.Async),
+                            node("a2", "async A2", BuilderType.Async)
                         )
+                    ),
+                    node("branch-b", "launch B (fails)", BuilderType.Launch,
+                        node("b1", "launch B1", BuilderType.Launch)
+                    ),
+                    node("branch-c", "launch C", BuilderType.Launch,
+                        node("c1", "launch C1", BuilderType.Launch)
                     )
                 )
             )
@@ -299,8 +195,7 @@ suspend fun main() = coroutineScope {
                 NarrativeEvent(3700, "Multiple fault boundaries: coroutineScope groups A's children, supervisorScope isolates B's failure from A and C")
             )
 
-            EventTimeline(
-                scenarioName = info.name,
+            timeline(
                 tree = tree,
                 events = events,
                 kotlinCode = """

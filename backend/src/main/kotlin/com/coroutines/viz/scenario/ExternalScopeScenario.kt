@@ -22,38 +22,12 @@ class ExternalScopeScenario : Scenario {
 
     // ── Beginner: pattern intro — handler completes, external child continues ──
     private fun buildBeginnerTimeline(): EventTimeline {
-        val handler = CoroutineNode(
-            id = "h-scope",
-            displayName = "coroutineScope (handler)",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "h-main",
-                    displayName = "launch (main work)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val handler = node("h-scope", "coroutineScope (handler)", BuilderType.CoroutineScope,
+            node("h-main", "launch (main work)", BuilderType.Launch)
         )
 
-        val external = CoroutineNode(
-            id = "x-scope",
-            displayName = "externalScope (CoroutineScope(SupervisorJob()))",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "x-bg",
-                    displayName = "launch (background work)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val external = supervisorNode("x-scope", "externalScope (CoroutineScope(SupervisorJob()))", BuilderType.CoroutineScope,
+            node("x-bg", "launch (background work)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -74,8 +48,7 @@ class ExternalScopeScenario : Scenario {
             NarrativeEvent(2600, "Pattern: pass externalScope as a constructor dependency. From inside a short-lived scope, use externalScope.launch { } for fire-and-forget work that should outlive the current operation but still be cancellable at app shutdown.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = handler,
             secondTree = external,
             events = events,
@@ -107,38 +80,12 @@ val service = MyService(externalScope)
 
     // ── Intermediate: same pattern + app shutdown via externalScope.cancel() ──
     private fun buildIntermediateTimeline(): EventTimeline {
-        val handler = CoroutineNode(
-            id = "h-scope",
-            displayName = "coroutineScope (handler)",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "h-main",
-                    displayName = "launch (main work)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val handler = node("h-scope", "coroutineScope (handler)", BuilderType.CoroutineScope,
+            node("h-main", "launch (main work)", BuilderType.Launch)
         )
 
-        val external = CoroutineNode(
-            id = "x-scope",
-            displayName = "externalScope (CoroutineScope(SupervisorJob()))",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "x-bg",
-                    displayName = "launch (long background work)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val external = supervisorNode("x-scope", "externalScope (CoroutineScope(SupervisorJob()))", BuilderType.CoroutineScope,
+            node("x-bg", "launch (long background work)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -162,8 +109,7 @@ val service = MyService(externalScope)
             NarrativeEvent(3400, "This is the value of externalScope: structured shutdown. Compare with launch(Job()) — orphans created that way are unreachable; you can't cancel them at app shutdown. They leak until they naturally finish (or the JVM dies).")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = handler,
             secondTree = external,
             events = events,
@@ -194,30 +140,11 @@ class MyService(private val externalScope: CoroutineScope) {
     // ── Advanced: side-by-side — orphan (launch(Job())) vs externalScope.launch ──
     private fun buildAdvancedTimeline(): EventTimeline {
         // LEFT — the orphan (no scope can reach it)
-        val orphanWorld = CoroutineNode(
-            id = "orphan",
-            displayName = "launch(Job()) — orphan",
-            builder = BuilderType.Launch,
-            jobType = JobType.Job,
-            initialState = JobState.New
-        )
+        val orphanWorld = node("orphan", "launch(Job()) — orphan", BuilderType.Launch)
 
         // RIGHT — externalScope holds the bg task
-        val externalWorld = CoroutineNode(
-            id = "x-scope",
-            displayName = "externalScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.SupervisorJob,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "x-bg",
-                    displayName = "launch (background work)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val externalWorld = supervisorNode("x-scope", "externalScope", BuilderType.CoroutineScope,
+            node("x-bg", "launch (background work)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -245,8 +172,7 @@ class MyService(private val externalScope: CoroutineScope) {
             NarrativeEvent(4000, "Rule of thumb: never use launch(Job()) for fire-and-forget. Inject an externalScope (CoroutineScope(SupervisorJob() + dispatcher)) into anything that needs to detach. One cancel() at shutdown cleans everything up.")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = orphanWorld,
             secondTree = externalWorld,
             events = events,

@@ -21,21 +21,8 @@ class InvokeOnCompletionScenario : Scenario {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child",
-                    displayName = "launch",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child", "launch", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -52,8 +39,7 @@ class InvokeOnCompletionScenario : Scenario {
             NarrativeEvent(1700, "When a coroutine completes normally, invokeOnCompletion's cause parameter is null")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -75,35 +61,10 @@ coroutineScope {
     }
 
     private fun buildIntermediateTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch #1 (completes)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch #2 (fails)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-3",
-                    displayName = "launch #3 (cancelled)",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-1", "launch #1 (completes)", BuilderType.Launch),
+            node("child-2", "launch #2 (fails)", BuilderType.Launch),
+            node("child-3", "launch #3 (cancelled)", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -133,8 +94,7 @@ coroutineScope {
             NarrativeEvent(2500, "Three outcomes: null (success), RuntimeException (failure), CancellationException (cancelled)")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -168,28 +128,9 @@ coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "child-1",
-                    displayName = "launch #1",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                ),
-                CoroutineNode(
-                    id = "child-2",
-                    displayName = "launch #2",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New
-                )
-            )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("child-1", "launch #1", BuilderType.Launch),
+            node("child-2", "launch #2", BuilderType.Launch)
         )
 
         val events = listOf(
@@ -212,8 +153,7 @@ coroutineScope {
             NarrativeEvent(2500, "Parent callback waits for ALL children — useful for tracking overall job completion")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """

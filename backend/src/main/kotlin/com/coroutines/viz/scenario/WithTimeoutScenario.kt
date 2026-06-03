@@ -19,29 +19,9 @@ class WithTimeoutScenario : Scenario {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "timeout-scope",
-                    displayName = "withTimeout(500)",
-                    builder = BuilderType.CoroutineScope,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "slow-work",
-                            displayName = "launch (slow)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("timeout-scope", "withTimeout(500)", BuilderType.CoroutineScope,
+                node("slow-work", "launch (slow)", BuilderType.Launch)
             )
         )
 
@@ -163,8 +143,7 @@ class WithTimeoutScenario : Scenario {
             }
         """.trimIndent()
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = kotlinCode
@@ -175,56 +154,16 @@ class WithTimeoutScenario : Scenario {
     // (Folded in from the former WithTimeoutOrNullScenario.)
     private fun buildAdvancedTimeline(): EventTimeline {
         // LEFT — withTimeout: caller needs try/catch
-        val withScope = CoroutineNode(
-            id = "wt-scope",
-            displayName = "coroutineScope (LEFT)",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "wt-block",
-                    displayName = "withTimeout(500)",
-                    builder = BuilderType.CoroutineScope,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "wt-work",
-                            displayName = "launch (slow)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val withScope = node("wt-scope", "coroutineScope (LEFT)", BuilderType.CoroutineScope,
+            node("wt-block", "withTimeout(500)", BuilderType.CoroutineScope,
+                node("wt-work", "launch (slow)", BuilderType.Launch)
             )
         )
 
         // RIGHT — withTimeoutOrNull: caller just checks for null
-        val orNullScope = CoroutineNode(
-            id = "or-scope",
-            displayName = "coroutineScope (RIGHT)",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "or-block",
-                    displayName = "withTimeoutOrNull(500)",
-                    builder = BuilderType.CoroutineScope,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "or-work",
-                            displayName = "launch (slow)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val orNullScope = node("or-scope", "coroutineScope (RIGHT)", BuilderType.CoroutineScope,
+            node("or-block", "withTimeoutOrNull(500)", BuilderType.CoroutineScope,
+                node("or-work", "launch (slow)", BuilderType.Launch)
             )
         )
 
@@ -261,8 +200,7 @@ class WithTimeoutScenario : Scenario {
             NarrativeEvent(3100, "Same internal behavior, very different ergonomics. Rule of thumb: if timeout is expected → withTimeoutOrNull. If timeout is an error worth propagating → withTimeout (and let it throw).")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = withScope,
             secondTree = orNullScope,
             events = events,
@@ -293,36 +231,10 @@ suspend fun right() = coroutineScope {
     }
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "timeout-scope",
-                    displayName = "withTimeout(1000)",
-                    builder = BuilderType.CoroutineScope,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "slow-work",
-                            displayName = "launch (slow)",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        ),
-                        CoroutineNode(
-                            id = "fast-work",
-                            displayName = "async (fast)",
-                            builder = BuilderType.Async,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("timeout-scope", "withTimeout(1000)", BuilderType.CoroutineScope,
+                node("slow-work", "launch (slow)", BuilderType.Launch),
+                node("fast-work", "async (fast)", BuilderType.Async)
             )
         )
 
@@ -468,8 +380,7 @@ suspend fun right() = coroutineScope {
             }
         """.trimIndent()
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = kotlinCode

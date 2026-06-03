@@ -12,45 +12,12 @@ class DownwardCancellationScenario : Scenario {
     )
 
     override fun buildTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "parent",
-                    displayName = "launch parent",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "child-1",
-                            displayName = "launch #1",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New,
-                            children = listOf(
-                                CoroutineNode(
-                                    id = "grandchild-1",
-                                    displayName = "launch #1a",
-                                    builder = BuilderType.Launch,
-                                    jobType = JobType.Job,
-                                    initialState = JobState.New
-                                )
-                            )
-                        ),
-                        CoroutineNode(
-                            id = "child-2",
-                            displayName = "async #2",
-                            builder = BuilderType.Async,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("parent", "launch parent", BuilderType.Launch,
+                node("child-1", "launch #1", BuilderType.Launch,
+                    node("grandchild-1", "launch #1a", BuilderType.Launch)
+                ),
+                node("child-2", "async #2", BuilderType.Async)
             )
         )
 
@@ -79,8 +46,7 @@ class DownwardCancellationScenario : Scenario {
             NarrativeEvent(3100, "Cancellation always flows DOWNWARD — children cannot cancel parents")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -117,29 +83,9 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildBeginnerTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "parent",
-                    displayName = "launch parent",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "child",
-                            displayName = "launch child",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("parent", "launch parent", BuilderType.Launch,
+                node("child", "launch child", BuilderType.Launch)
             )
         )
 
@@ -159,8 +105,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(2400, "Cancellation flows DOWNWARD — the child was cancelled because its parent was cancelled")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
@@ -181,59 +126,14 @@ suspend fun main() = coroutineScope {
     }
 
     private fun buildAdvancedTimeline(): EventTimeline {
-        val tree = CoroutineNode(
-            id = "root",
-            displayName = "coroutineScope",
-            builder = BuilderType.CoroutineScope,
-            jobType = JobType.Job,
-            initialState = JobState.New,
-            children = listOf(
-                CoroutineNode(
-                    id = "parent",
-                    displayName = "launch parent",
-                    builder = BuilderType.Launch,
-                    jobType = JobType.Job,
-                    initialState = JobState.New,
-                    children = listOf(
-                        CoroutineNode(
-                            id = "child-1",
-                            displayName = "launch #1",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New,
-                            children = listOf(
-                                CoroutineNode(
-                                    id = "gc-1",
-                                    displayName = "launch #1a",
-                                    builder = BuilderType.Launch,
-                                    jobType = JobType.Job,
-                                    initialState = JobState.New
-                                ),
-                                CoroutineNode(
-                                    id = "gc-2",
-                                    displayName = "async #1b",
-                                    builder = BuilderType.Async,
-                                    jobType = JobType.Job,
-                                    initialState = JobState.New
-                                )
-                            )
-                        ),
-                        CoroutineNode(
-                            id = "child-2",
-                            displayName = "async #2",
-                            builder = BuilderType.Async,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        ),
-                        CoroutineNode(
-                            id = "child-3",
-                            displayName = "launch #3",
-                            builder = BuilderType.Launch,
-                            jobType = JobType.Job,
-                            initialState = JobState.New
-                        )
-                    )
-                )
+        val tree = node("root", "coroutineScope", BuilderType.CoroutineScope,
+            node("parent", "launch parent", BuilderType.Launch,
+                node("child-1", "launch #1", BuilderType.Launch,
+                    node("gc-1", "launch #1a", BuilderType.Launch),
+                    node("gc-2", "async #1b", BuilderType.Async)
+                ),
+                node("child-2", "async #2", BuilderType.Async),
+                node("child-3", "launch #3", BuilderType.Launch)
             )
         )
 
@@ -271,8 +171,7 @@ suspend fun main() = coroutineScope {
             NarrativeEvent(4200, "Cancellation flows downward but only affects active coroutines — child-2 stayed Completed")
         )
 
-        return EventTimeline(
-            scenarioName = info.name,
+        return timeline(
             tree = tree,
             events = events,
             kotlinCode = """
