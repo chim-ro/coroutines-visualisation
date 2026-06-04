@@ -29,17 +29,17 @@ class JobFactoryTrapScenario : Scenario {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "Job() is the simplest factory for creating a Job manually. Unlike a Job built by coroutineScope, it does NOT auto-complete when its children finish."),
-            StateChangeEvent(100, "Manual Job() becomes Active — the factory creates it Active", "manual-job", JobState.New, JobState.Active),
-            StateChangeEvent(300, "launch(job) starts — its Job is parented to the manual Job, not the surrounding scope", "child", JobState.New, JobState.Active),
-            StateChangeEvent(800, "Child finishes its work", "child", JobState.Active, JobState.Completing),
-            StateChangeEvent(900, "Child completed", "child", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1100, "Watch carefully: the child is Completed, but the manual Job() is STILL Active. This is the surprise."),
-            NarrativeEvent(1600, "A scope-built Job (like coroutineScope's internal Job) auto-transitions Active → Completing → Completed once its children finish. Job() does not — it has no body, and the runtime can't know if more children are coming."),
-            NarrativeEvent(2100, "To complete a manual Job, call job.complete(). It marks the Job as 'no more children' and lets it transition through the normal completion path."),
-            StateChangeEvent(2400, "job.complete() called — Job enters Completing (children already done)", "manual-job", JobState.Active, JobState.Completing),
-            StateChangeEvent(2500, "Manual Job completed", "manual-job", JobState.Completing, JobState.Completed),
-            NarrativeEvent(2700, "Key insight: if you create a Job() manually, YOU are responsible for completing it. Otherwise it stays Active forever, and any job.join() on it will hang.")
+            narrative(0, "Job() is the simplest factory for creating a Job manually. Unlike a Job built by coroutineScope, it does NOT auto-complete when its children finish."),
+            starts(100, "Manual Job() becomes Active — the factory creates it Active", "manual-job"),
+            starts(300, "launch(job) starts — its Job is parented to the manual Job, not the surrounding scope", "child"),
+            completing(800, "Child finishes its work", "child"),
+            completed(900, "Child completed", "child"),
+            narrative(1100, "Watch carefully: the child is Completed, but the manual Job() is STILL Active. This is the surprise."),
+            narrative(1600, "A scope-built Job (like coroutineScope's internal Job) auto-transitions Active → Completing → Completed once its children finish. Job() does not — it has no body, and the runtime can't know if more children are coming."),
+            narrative(2100, "To complete a manual Job, call job.complete(). It marks the Job as 'no more children' and lets it transition through the normal completion path."),
+            completing(2400, "job.complete() called — Job enters Completing (children already done)", "manual-job"),
+            completed(2500, "Manual Job completed", "manual-job"),
+            narrative(2700, "Key insight: if you create a Job() manually, YOU are responsible for completing it. Otherwise it stays Active forever, and any job.join() on it will hang.")
         )
 
         return timeline(
@@ -73,21 +73,21 @@ suspend fun main() = coroutineScope {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "The 'never ends' trap: two children under a manual Job, then job.join() to wait for it. What happens if we forget complete()?"),
-            StateChangeEvent(100, "Manual Job() becomes Active", "manual-job", JobState.New, JobState.Active),
-            StateChangeEvent(300, "launch #1 starts", "child-1", JobState.New, JobState.Active),
-            StateChangeEvent(400, "launch #2 starts", "child-2", JobState.New, JobState.Active),
-            StateChangeEvent(900, "Child #1 finishes", "child-1", JobState.Active, JobState.Completing),
-            StateChangeEvent(1000, "Child #1 completed", "child-1", JobState.Completing, JobState.Completed),
-            StateChangeEvent(1200, "Child #2 finishes", "child-2", JobState.Active, JobState.Completing),
-            StateChangeEvent(1300, "Child #2 completed", "child-2", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1500, "Both children are Completed. The caller now invokes job.join()..."),
-            NarrativeEvent(2000, "...but the manual Job is STILL Active. job.join() suspends — waiting for a transition that will never come."),
-            NarrativeEvent(2600, "In real code, the program hangs here. The classic 'never ends' bug from lesson 88."),
-            NarrativeEvent(3200, "Recovery: call job.complete(). This marks the Job as 'no more children' and lets it transition. Since children are already done, it goes Active → Completing → Completed immediately."),
-            StateChangeEvent(3500, "job.complete() called — Job enters Completing", "manual-job", JobState.Active, JobState.Completing),
-            StateChangeEvent(3600, "Manual Job completed — join() unblocks", "manual-job", JobState.Completing, JobState.Completed),
-            NarrativeEvent(3800, "Rule: if you create a Job() manually, ALWAYS pair the creation with a complete() call (typically in try/finally), or use a scope builder instead.")
+            narrative(0, "The 'never ends' trap: two children under a manual Job, then job.join() to wait for it. What happens if we forget complete()?"),
+            starts(100, "Manual Job() becomes Active", "manual-job"),
+            starts(300, "launch #1 starts", "child-1"),
+            starts(400, "launch #2 starts", "child-2"),
+            completing(900, "Child #1 finishes", "child-1"),
+            completed(1000, "Child #1 completed", "child-1"),
+            completing(1200, "Child #2 finishes", "child-2"),
+            completed(1300, "Child #2 completed", "child-2"),
+            narrative(1500, "Both children are Completed. The caller now invokes job.join()..."),
+            narrative(2000, "...but the manual Job is STILL Active. job.join() suspends — waiting for a transition that will never come."),
+            narrative(2600, "In real code, the program hangs here. The classic 'never ends' bug from lesson 88."),
+            narrative(3200, "Recovery: call job.complete(). This marks the Job as 'no more children' and lets it transition. Since children are already done, it goes Active → Completing → Completed immediately."),
+            completing(3500, "job.complete() called — Job enters Completing", "manual-job"),
+            completed(3600, "Manual Job completed — join() unblocks", "manual-job"),
+            narrative(3800, "Rule: if you create a Job() manually, ALWAYS pair the creation with a complete() call (typically in try/finally), or use a scope builder instead.")
         )
 
         return timeline(
@@ -136,35 +136,35 @@ suspend fun main() = coroutineScope {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "Same structure, two parents: LEFT is a manual Job(), RIGHT is coroutineScope. Watch which one auto-completes."),
+            narrative(0, "Same structure, two parents: LEFT is a manual Job(), RIGHT is coroutineScope. Watch which one auto-completes."),
             // Both parents become Active
-            StateChangeEvent(100, "Manual Job() becomes Active", "manual-job", JobState.New, JobState.Active),
-            StateChangeEvent(150, "coroutineScope becomes Active", "auto-scope", JobState.New, JobState.Active),
+            starts(100, "Manual Job() becomes Active", "manual-job"),
+            starts(150, "coroutineScope becomes Active", "auto-scope"),
             // Children start on both sides
-            StateChangeEvent(300, "L: child #1 starts", "m-child-1", JobState.New, JobState.Active),
-            StateChangeEvent(350, "R: child #1 starts", "a-child-1", JobState.New, JobState.Active),
-            StateChangeEvent(400, "L: child #2 starts", "m-child-2", JobState.New, JobState.Active),
-            StateChangeEvent(450, "R: child #2 starts", "a-child-2", JobState.New, JobState.Active),
+            starts(300, "L: child #1 starts", "m-child-1"),
+            starts(350, "R: child #1 starts", "a-child-1"),
+            starts(400, "L: child #2 starts", "m-child-2"),
+            starts(450, "R: child #2 starts", "a-child-2"),
             // Children finish on both sides at the same times
-            StateChangeEvent(900, "L: child #1 finishes", "m-child-1", JobState.Active, JobState.Completing),
-            StateChangeEvent(950, "R: child #1 finishes", "a-child-1", JobState.Active, JobState.Completing),
-            StateChangeEvent(1000, "L: child #1 completed", "m-child-1", JobState.Completing, JobState.Completed),
-            StateChangeEvent(1050, "R: child #1 completed", "a-child-1", JobState.Completing, JobState.Completed),
-            StateChangeEvent(1200, "L: child #2 finishes", "m-child-2", JobState.Active, JobState.Completing),
-            StateChangeEvent(1250, "R: child #2 finishes", "a-child-2", JobState.Active, JobState.Completing),
-            StateChangeEvent(1300, "L: child #2 completed", "m-child-2", JobState.Completing, JobState.Completed),
-            StateChangeEvent(1350, "R: child #2 completed", "a-child-2", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1500, "Both sides: all children Completed. Watch the parents next."),
+            completing(900, "L: child #1 finishes", "m-child-1"),
+            completing(950, "R: child #1 finishes", "a-child-1"),
+            completed(1000, "L: child #1 completed", "m-child-1"),
+            completed(1050, "R: child #1 completed", "a-child-1"),
+            completing(1200, "L: child #2 finishes", "m-child-2"),
+            completing(1250, "R: child #2 finishes", "a-child-2"),
+            completed(1300, "L: child #2 completed", "m-child-2"),
+            completed(1350, "R: child #2 completed", "a-child-2"),
+            narrative(1500, "Both sides: all children Completed. Watch the parents next."),
             // RIGHT side auto-completes
-            StateChangeEvent(1700, "R: coroutineScope enters Completing (auto — children done)", "auto-scope", JobState.Active, JobState.Completing),
-            StateChangeEvent(1800, "R: coroutineScope Completed", "auto-scope", JobState.Completing, JobState.Completed),
-            NarrativeEvent(2000, "Right side: coroutineScope auto-transitioned to Completed as soon as its children finished. This is the value of structured concurrency."),
+            completing(1700, "R: coroutineScope enters Completing (auto — children done)", "auto-scope"),
+            completed(1800, "R: coroutineScope Completed", "auto-scope"),
+            narrative(2000, "Right side: coroutineScope auto-transitioned to Completed as soon as its children finished. This is the value of structured concurrency."),
             // LEFT side stays Active
-            NarrativeEvent(2400, "Left side: manual Job() is still Active. It does not know if more children are coming. job.join() would hang here."),
-            NarrativeEvent(3000, "Calling job.complete() on the manual Job — the explicit acknowledgment that we're done."),
-            StateChangeEvent(3300, "L: manual Job enters Completing (complete() called)", "manual-job", JobState.Active, JobState.Completing),
-            StateChangeEvent(3400, "L: manual Job Completed", "manual-job", JobState.Completing, JobState.Completed),
-            NarrativeEvent(3600, "Takeaway: prefer coroutineScope (or supervisorScope) over manual Job(). The structured scope handles lifecycle automatically; a manual Job needs explicit complete() AND careful try/finally discipline.")
+            narrative(2400, "Left side: manual Job() is still Active. It does not know if more children are coming. job.join() would hang here."),
+            narrative(3000, "Calling job.complete() on the manual Job — the explicit acknowledgment that we're done."),
+            completing(3300, "L: manual Job enters Completing (complete() called)", "manual-job"),
+            completed(3400, "L: manual Job Completed", "manual-job"),
+            narrative(3600, "Takeaway: prefer coroutineScope (or supervisorScope) over manual Job(). The structured scope handles lifecycle automatically; a manual Job needs explicit complete() AND careful try/finally discipline.")
         )
 
         return timeline(

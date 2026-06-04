@@ -20,39 +20,39 @@ class SuspensionResumptionScenario : Scenario {
 
         val events = listOf(
             // Phase 1: Setup — all three launches create coroutines, all go Active immediately
-            NarrativeEvent(0, "All three coroutines share a single thread. Note: this single-thread behavior is specific to runBlocking's confined dispatcher — on Dispatchers.Default the same coroutines would run in parallel across CPU cores."),
-            StateChangeEvent(200, "Root coroutine becomes Active", "root", JobState.New, JobState.Active),
-            StateChangeEvent(500, "Fetcher launched — Job state becomes Active", "fetcher", JobState.New, JobState.Active),
-            StateChangeEvent(600, "Processor launched — Job state becomes Active", "processor", JobState.New, JobState.Active),
-            StateChangeEvent(700, "Logger launched — Job state becomes Active", "logger", JobState.New, JobState.Active),
-            NarrativeEvent(900, "All three are Active, but runBlocking's dispatcher runs only one body at a time on its single thread. Fetcher's body runs first."),
+            narrative(0, "All three coroutines share a single thread. Note: this single-thread behavior is specific to runBlocking's confined dispatcher — on Dispatchers.Default the same coroutines would run in parallel across CPU cores."),
+            starts(200, "Root coroutine becomes Active", "root"),
+            starts(500, "Fetcher launched — Job state becomes Active", "fetcher"),
+            starts(600, "Processor launched — Job state becomes Active", "processor"),
+            starts(700, "Logger launched — Job state becomes Active", "logger"),
+            narrative(900, "All three are Active, but runBlocking's dispatcher runs only one body at a time on its single thread. Fetcher's body runs first."),
 
             // Phase 2: Fetcher suspends
-            NarrativeEvent(1200, "Fetcher calls delay(1000) — simulating a network request. The coroutine SUSPENDS."),
-            StateChangeEvent(1400, "Fetcher suspends — the thread is now FREE", "fetcher", JobState.Active, JobState.Suspended),
-            NarrativeEvent(1600, "Key insight: the thread is not blocked! It's released back to the dispatcher."),
+            narrative(1200, "Fetcher calls delay(1000) — simulating a network request. The coroutine SUSPENDS."),
+            suspends(1400, "Fetcher suspends — the thread is now FREE", "fetcher"),
+            narrative(1600, "Key insight: the thread is not blocked! It's released back to the dispatcher."),
 
             // Phase 3: Other coroutines (already Active) get thread time
-            NarrativeEvent(2000, "With the thread free, the dispatcher runs the next ready coroutine. Processor and Logger were already Active — now they get to execute."),
-            NarrativeEvent(3200, "Processor and Logger are doing real work while Fetcher sleeps."),
+            narrative(2000, "With the thread free, the dispatcher runs the next ready coroutine. Processor and Logger were already Active — now they get to execute."),
+            narrative(3200, "Processor and Logger are doing real work while Fetcher sleeps."),
 
             // Phase 4: Other coroutines complete their work
-            StateChangeEvent(3800, "Processor finishes its work", "processor", JobState.Active, JobState.Completing),
-            StateChangeEvent(4100, "Processor completed", "processor", JobState.Completing, JobState.Completed),
-            StateChangeEvent(4500, "Logger finishes its work", "logger", JobState.Active, JobState.Completing),
-            StateChangeEvent(4800, "Logger completed", "logger", JobState.Completing, JobState.Completed),
+            completing(3800, "Processor finishes its work", "processor"),
+            completed(4100, "Processor completed", "processor"),
+            completing(4500, "Logger finishes its work", "logger"),
+            completed(4800, "Logger completed", "logger"),
 
             // Phase 5: Fetcher resumes — the aha moment
-            NarrativeEvent(5400, "delay(1000) expires — the dispatcher RESUMES the fetcher coroutine."),
-            StateChangeEvent(5700, "Fetcher RESUMES — picks up exactly where it left off", "fetcher", JobState.Suspended, JobState.Active),
-            NarrativeEvent(6100, "This is the magic: no threads were blocked. Suspension is cooperative, not preemptive."),
+            narrative(5400, "delay(1000) expires — the dispatcher RESUMES the fetcher coroutine."),
+            resumes(5700, "Fetcher RESUMES — picks up exactly where it left off", "fetcher"),
+            narrative(6100, "This is the magic: no threads were blocked. Suspension is cooperative, not preemptive."),
 
             // Phase 6: Everyone completes
-            StateChangeEvent(6600, "Fetcher finishes processing the response", "fetcher", JobState.Active, JobState.Completing),
-            StateChangeEvent(6900, "Fetcher completed", "fetcher", JobState.Completing, JobState.Completed),
-            NarrativeEvent(7200, "All children are done — root can complete."),
-            StateChangeEvent(7500, "Root enters Completing", "root", JobState.Active, JobState.Completing),
-            StateChangeEvent(7800, "Root completed — one thread served all three coroutines via suspension", "root", JobState.Completing, JobState.Completed)
+            completing(6600, "Fetcher finishes processing the response", "fetcher"),
+            completed(6900, "Fetcher completed", "fetcher"),
+            narrative(7200, "All children are done — root can complete."),
+            completing(7500, "Root enters Completing", "root"),
+            completed(7800, "Root completed — one thread served all three coroutines via suspension", "root")
         )
 
         return timeline(
@@ -92,25 +92,25 @@ fun main() = runBlocking {
 
             val events = listOf(
                 // Phase 1: Both start
-                NarrativeEvent(0, "A single coroutine demonstrates suspension. Watch how delay() pauses without blocking the thread."),
-                StateChangeEvent(200, "Root coroutine becomes Active", "root", JobState.New, JobState.Active),
-                StateChangeEvent(600, "Worker coroutine starts", "worker", JobState.New, JobState.Active),
+                narrative(0, "A single coroutine demonstrates suspension. Watch how delay() pauses without blocking the thread."),
+                starts(200, "Root coroutine becomes Active", "root"),
+                starts(600, "Worker coroutine starts", "worker"),
 
                 // Phase 2: Worker suspends
-                NarrativeEvent(1200, "Worker calls delay(500) — it SUSPENDS. The underlying thread is not blocked."),
-                StateChangeEvent(1400, "Worker suspends on delay()", "worker", JobState.Active, JobState.Suspended),
-                NarrativeEvent(1800, "The thread is free! In a real app, other coroutines could run now."),
+                narrative(1200, "Worker calls delay(500) — it SUSPENDS. The underlying thread is not blocked."),
+                suspends(1400, "Worker suspends on delay()", "worker"),
+                narrative(1800, "The thread is free! In a real app, other coroutines could run now."),
 
                 // Phase 3: Worker resumes
-                NarrativeEvent(2400, "delay(500) expires — the dispatcher resumes the worker."),
-                StateChangeEvent(2600, "Worker RESUMES and continues execution", "worker", JobState.Suspended, JobState.Active),
+                narrative(2400, "delay(500) expires — the dispatcher resumes the worker."),
+                resumes(2600, "Worker RESUMES and continues execution", "worker"),
 
                 // Phase 4: Completion
-                StateChangeEvent(3200, "Worker finishes its work", "worker", JobState.Active, JobState.Completing),
-                StateChangeEvent(3500, "Worker completed", "worker", JobState.Completing, JobState.Completed),
-                NarrativeEvent(3800, "Child is done — root can now complete."),
-                StateChangeEvent(4100, "Root enters Completing", "root", JobState.Active, JobState.Completing),
-                StateChangeEvent(4400, "Root completed", "root", JobState.Completing, JobState.Completed)
+                completing(3200, "Worker finishes its work", "worker"),
+                completed(3500, "Worker completed", "worker"),
+                narrative(3800, "Child is done — root can now complete."),
+                completing(4100, "Root enters Completing", "root"),
+                completed(4400, "Root completed", "root")
             )
 
             timeline(
@@ -138,63 +138,63 @@ fun main() = runBlocking {
 
             val events = listOf(
                 // Phase 1: All four launches create coroutines, all go Active immediately
-                NarrativeEvent(0, "Four coroutines share a single thread. Multiple suspend/resume cycles show true cooperative multitasking."),
-                StateChangeEvent(200, "Root coroutine becomes Active", "root", JobState.New, JobState.Active),
-                StateChangeEvent(400, "Fetcher launched — Job state becomes Active", "fetcher", JobState.New, JobState.Active),
-                StateChangeEvent(500, "Processor launched — Job state becomes Active", "processor", JobState.New, JobState.Active),
-                StateChangeEvent(600, "Logger launched — Job state becomes Active", "logger", JobState.New, JobState.Active),
-                StateChangeEvent(700, "Cache async launched — Job state becomes Active", "cache", JobState.New, JobState.Active),
-                NarrativeEvent(1000, "All four are Active, but only one body runs at a time. The dispatcher starts with Fetcher."),
+                narrative(0, "Four coroutines share a single thread. Multiple suspend/resume cycles show true cooperative multitasking."),
+                starts(200, "Root coroutine becomes Active", "root"),
+                starts(400, "Fetcher launched — Job state becomes Active", "fetcher"),
+                starts(500, "Processor launched — Job state becomes Active", "processor"),
+                starts(600, "Logger launched — Job state becomes Active", "logger"),
+                starts(700, "Cache async launched — Job state becomes Active", "cache"),
+                narrative(1000, "All four are Active, but only one body runs at a time. The dispatcher starts with Fetcher."),
 
                 // Phase 2: Fetcher suspends (first time)
-                NarrativeEvent(1800, "Fetcher hits its first delay() — first network call. Thread is released."),
-                StateChangeEvent(2000, "Fetcher suspends on first network call", "fetcher", JobState.Active, JobState.Suspended),
+                narrative(1800, "Fetcher hits its first delay() — first network call. Thread is released."),
+                suspends(2000, "Fetcher suspends on first network call", "fetcher"),
 
                 // Phase 3: Processor runs then suspends
-                NarrativeEvent(2400, "With fetcher suspended, processor gets thread time and does its work."),
-                StateChangeEvent(2800, "Processor suspends while waiting for data", "processor", JobState.Active, JobState.Suspended),
+                narrative(2400, "With fetcher suspended, processor gets thread time and does its work."),
+                suspends(2800, "Processor suspends while waiting for data", "processor"),
 
                 // Phase 4: Logger runs, cache runs (both already Active, just getting thread time)
-                NarrativeEvent(3200, "Thread bounces to logger, then cache — cooperative scheduling in action."),
-                NarrativeEvent(3400, "Logger writes first batch of logs"),
-                NarrativeEvent(3800, "Cache computes and stores result"),
+                narrative(3200, "Thread bounces to logger, then cache — cooperative scheduling in action."),
+                narrative(3400, "Logger writes first batch of logs"),
+                narrative(3800, "Cache computes and stores result"),
 
                 // Phase 5: Fetcher resumes and suspends again (second network call)
-                NarrativeEvent(4200, "Fetcher's first delay() expires — it resumes for its second network call."),
-                StateChangeEvent(4400, "Fetcher RESUMES from first suspension", "fetcher", JobState.Suspended, JobState.Active),
-                NarrativeEvent(4800, "Fetcher immediately hits another delay() — second network call. Suspends again!"),
-                StateChangeEvent(5000, "Fetcher suspends AGAIN on second network call", "fetcher", JobState.Active, JobState.Suspended),
+                narrative(4200, "Fetcher's first delay() expires — it resumes for its second network call."),
+                resumes(4400, "Fetcher RESUMES from first suspension", "fetcher"),
+                narrative(4800, "Fetcher immediately hits another delay() — second network call. Suspends again!"),
+                suspends(5000, "Fetcher suspends AGAIN on second network call", "fetcher"),
 
                 // Phase 6: Cache completes
-                NarrativeEvent(5400, "Cache finishes its async computation and delivers the Deferred result."),
-                StateChangeEvent(5600, "Cache enters Completing", "cache", JobState.Active, JobState.Completing),
-                StateChangeEvent(5800, "Cache completed — result is available via await()", "cache", JobState.Completing, JobState.Completed),
+                narrative(5400, "Cache finishes its async computation and delivers the Deferred result."),
+                completing(5600, "Cache enters Completing", "cache"),
+                completed(5800, "Cache completed — result is available via await()", "cache"),
 
                 // Phase 7: Logger suspends
-                NarrativeEvent(6200, "Logger needs to flush — it suspends to wait for I/O."),
-                StateChangeEvent(6400, "Logger suspends on I/O flush", "logger", JobState.Active, JobState.Suspended),
+                narrative(6200, "Logger needs to flush — it suspends to wait for I/O."),
+                suspends(6400, "Logger suspends on I/O flush", "logger"),
 
                 // Phase 8: Processor resumes and completes
-                NarrativeEvent(6800, "Processor's data arrived — it resumes and finishes."),
-                StateChangeEvent(7000, "Processor resumes", "processor", JobState.Suspended, JobState.Active),
-                StateChangeEvent(7400, "Processor enters Completing", "processor", JobState.Active, JobState.Completing),
-                StateChangeEvent(7600, "Processor completed", "processor", JobState.Completing, JobState.Completed),
+                narrative(6800, "Processor's data arrived — it resumes and finishes."),
+                resumes(7000, "Processor resumes", "processor"),
+                completing(7400, "Processor enters Completing", "processor"),
+                completed(7600, "Processor completed", "processor"),
 
                 // Phase 9: Fetcher resumes (second time) and completes
-                NarrativeEvent(8000, "Fetcher's second delay() expires — it resumes for the last time."),
-                StateChangeEvent(8200, "Fetcher RESUMES from second suspension", "fetcher", JobState.Suspended, JobState.Active),
-                StateChangeEvent(8600, "Fetcher enters Completing", "fetcher", JobState.Active, JobState.Completing),
-                StateChangeEvent(8800, "Fetcher completed — both network calls done", "fetcher", JobState.Completing, JobState.Completed),
+                narrative(8000, "Fetcher's second delay() expires — it resumes for the last time."),
+                resumes(8200, "Fetcher RESUMES from second suspension", "fetcher"),
+                completing(8600, "Fetcher enters Completing", "fetcher"),
+                completed(8800, "Fetcher completed — both network calls done", "fetcher"),
 
                 // Phase 10: Logger resumes and completes
-                StateChangeEvent(9200, "Logger resumes after I/O flush", "logger", JobState.Suspended, JobState.Active),
-                StateChangeEvent(9600, "Logger enters Completing", "logger", JobState.Active, JobState.Completing),
-                StateChangeEvent(9800, "Logger completed", "logger", JobState.Completing, JobState.Completed),
+                resumes(9200, "Logger resumes after I/O flush", "logger"),
+                completing(9600, "Logger enters Completing", "logger"),
+                completed(9800, "Logger completed", "logger"),
 
                 // Phase 11: Root completes
-                NarrativeEvent(10200, "All four children are done. One thread handled everything — suspension made it possible."),
-                StateChangeEvent(10500, "Root enters Completing", "root", JobState.Active, JobState.Completing),
-                StateChangeEvent(10800, "Root completed — thread reuse via multiple suspend/resume cycles", "root", JobState.Completing, JobState.Completed)
+                narrative(10200, "All four children are done. One thread handled everything — suspension made it possible."),
+                completing(10500, "Root enters Completing", "root"),
+                completed(10800, "Root completed — thread reuse via multiple suspend/resume cycles", "root")
             )
 
             timeline(

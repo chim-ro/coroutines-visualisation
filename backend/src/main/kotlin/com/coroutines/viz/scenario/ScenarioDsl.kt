@@ -41,6 +41,55 @@ fun supervisorNode(
     children = children.toList()
 )
 
+// --- Event verbs -----------------------------------------------------------
+// Each verb is a thin alias for a SimulationEvent whose state transition is
+// fixed by the verb's meaning, so call sites carry only the bespoke parts
+// (time, description, node) and never repeat the JobState pair.
+
+/** A node activating for the first time: New → Active. */
+fun starts(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.New, JobState.Active)
+
+/** A node finishing its work and entering the completing handshake: Active → Completing. */
+fun completing(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.Active, JobState.Completing)
+
+/** A node fully completed: Completing → Completed. */
+fun completed(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.Completing, JobState.Completed)
+
+/** A node beginning cancellation: Active → Cancelling. */
+fun cancelling(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.Active, JobState.Cancelling)
+
+/** A node fully cancelled: Cancelling → Cancelled. */
+fun cancelled(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.Cancelling, JobState.Cancelled)
+
+/** A node suspending at a suspension point: Active → Suspended. */
+fun suspends(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.Active, JobState.Suspended)
+
+/** A suspended node resuming: Suspended → Active. */
+fun resumes(at: Long, description: String, nodeId: String): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, JobState.Suspended, JobState.Active)
+
+/** Escape hatch for any state change the verbs above don't cover (e.g. New → Cancelled). */
+fun transition(at: Long, description: String, nodeId: String, from: JobState, to: JobState): StateChangeEvent =
+    StateChangeEvent(at, description, nodeId, from, to)
+
+/** A pure narration step with no state change. */
+fun narrative(at: Long, description: String): NarrativeEvent =
+    NarrativeEvent(at, description)
+
+/** A cancellation signal travelling from one node to another. */
+fun cancellation(at: Long, description: String, sourceNodeId: String, targetNodeId: String): CancellationEvent =
+    CancellationEvent(at, description, sourceNodeId, targetNodeId)
+
+/** An exception propagating from one node to another. */
+fun exception(at: Long, description: String, sourceNodeId: String, targetNodeId: String, exceptionMessage: String): ExceptionEvent =
+    ExceptionEvent(at, description, sourceNodeId, targetNodeId, exceptionMessage)
+
 /**
  * Build an [EventTimeline] for this scenario, defaulting [EventTimeline.scenarioName]
  * to the scenario's own name so call sites don't have to repeat `info.name`.

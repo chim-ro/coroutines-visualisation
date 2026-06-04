@@ -26,17 +26,17 @@ class InvokeOnCompletionScenario : Scenario {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "A child with invokeOnCompletion callback — completes normally"),
-            StateChangeEvent(100, "Scope becomes Active", "root", JobState.New, JobState.Active),
-            StateChangeEvent(300, "launch starts", "child", JobState.New, JobState.Active),
-            NarrativeEvent(500, "job.invokeOnCompletion { cause -> ... } registered on child"),
-            NarrativeEvent(800, "Child is doing work..."),
-            StateChangeEvent(1000, "Child completing", "child", JobState.Active, JobState.Completing),
-            StateChangeEvent(1100, "Child completed", "child", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1300, "invokeOnCompletion fires with cause = null (normal completion)"),
-            StateChangeEvent(1500, "Parent scope completing", "root", JobState.Active, JobState.Completing),
-            StateChangeEvent(1600, "Parent scope completed", "root", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1700, "When a coroutine completes normally, invokeOnCompletion's cause parameter is null")
+            narrative(0, "A child with invokeOnCompletion callback — completes normally"),
+            starts(100, "Scope becomes Active", "root"),
+            starts(300, "launch starts", "child"),
+            narrative(500, "job.invokeOnCompletion { cause -> ... } registered on child"),
+            narrative(800, "Child is doing work..."),
+            completing(1000, "Child completing", "child"),
+            completed(1100, "Child completed", "child"),
+            narrative(1300, "invokeOnCompletion fires with cause = null (normal completion)"),
+            completing(1500, "Parent scope completing", "root"),
+            completed(1600, "Parent scope completed", "root"),
+            narrative(1700, "When a coroutine completes normally, invokeOnCompletion's cause parameter is null")
         )
 
         return timeline(
@@ -68,30 +68,30 @@ coroutineScope {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "Three children with invokeOnCompletion: complete, fail, cancel"),
-            StateChangeEvent(100, "Scope becomes Active", "root", JobState.New, JobState.Active),
-            StateChangeEvent(300, "launch #1 starts", "child-1", JobState.New, JobState.Active),
-            StateChangeEvent(400, "launch #2 starts", "child-2", JobState.New, JobState.Active),
-            StateChangeEvent(500, "launch #3 starts", "child-3", JobState.New, JobState.Active),
-            NarrativeEvent(600, "invokeOnCompletion registered on all three children"),
+            narrative(0, "Three children with invokeOnCompletion: complete, fail, cancel"),
+            starts(100, "Scope becomes Active", "root"),
+            starts(300, "launch #1 starts", "child-1"),
+            starts(400, "launch #2 starts", "child-2"),
+            starts(500, "launch #3 starts", "child-3"),
+            narrative(600, "invokeOnCompletion registered on all three children"),
             // Child 1 completes normally
-            StateChangeEvent(900, "#1 completing", "child-1", JobState.Active, JobState.Completing),
-            StateChangeEvent(1000, "#1 completed", "child-1", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1100, "#1 callback: cause = null (normal completion)"),
+            completing(900, "#1 completing", "child-1"),
+            completed(1000, "#1 completed", "child-1"),
+            narrative(1100, "#1 callback: cause = null (normal completion)"),
             // Child 2 fails
-            NarrativeEvent(1300, "#2 encounters an exception..."),
-            StateChangeEvent(1400, "#2 fails — enters Cancelling", "child-2", JobState.Active, JobState.Cancelling),
-            StateChangeEvent(1500, "#2 is Cancelled", "child-2", JobState.Cancelling, JobState.Cancelled),
-            NarrativeEvent(1600, "#2 callback: cause = RuntimeException (failure)"),
+            narrative(1300, "#2 encounters an exception..."),
+            cancelling(1400, "#2 fails — enters Cancelling", "child-2"),
+            cancelled(1500, "#2 is Cancelled", "child-2"),
+            narrative(1600, "#2 callback: cause = RuntimeException (failure)"),
             // Exception propagates, cancels child 3
-            ExceptionEvent(1700, "Exception propagates to parent", "child-2", "root", "RuntimeException: task failed"),
-            StateChangeEvent(1800, "Parent enters Cancelling", "root", JobState.Active, JobState.Cancelling),
-            CancellationEvent(1900, "Parent cancels #3", "root", "child-3"),
-            StateChangeEvent(2000, "#3 enters Cancelling", "child-3", JobState.Active, JobState.Cancelling),
-            StateChangeEvent(2100, "#3 cancelled", "child-3", JobState.Cancelling, JobState.Cancelled),
-            NarrativeEvent(2200, "#3 callback: cause = CancellationException (cancelled by parent)"),
-            StateChangeEvent(2400, "Parent scope cancelled", "root", JobState.Cancelling, JobState.Cancelled),
-            NarrativeEvent(2500, "Three outcomes: null (success), RuntimeException (failure), CancellationException (cancelled)")
+            exception(1700, "Exception propagates to parent", "child-2", "root", "RuntimeException: task failed"),
+            cancelling(1800, "Parent enters Cancelling", "root"),
+            cancellation(1900, "Parent cancels #3", "root", "child-3"),
+            cancelling(2000, "#3 enters Cancelling", "child-3"),
+            cancelled(2100, "#3 cancelled", "child-3"),
+            narrative(2200, "#3 callback: cause = CancellationException (cancelled by parent)"),
+            cancelled(2400, "Parent scope cancelled", "root"),
+            narrative(2500, "Three outcomes: null (success), RuntimeException (failure), CancellationException (cancelled)")
         )
 
         return timeline(
@@ -134,23 +134,23 @@ coroutineScope {
         )
 
         val events = listOf(
-            NarrativeEvent(0, "invokeOnCompletion on PARENT Job — fires only after ALL children complete"),
-            StateChangeEvent(100, "Scope becomes Active", "root", JobState.New, JobState.Active),
-            StateChangeEvent(300, "launch #1 starts", "child-1", JobState.New, JobState.Active),
-            StateChangeEvent(400, "launch #2 starts", "child-2", JobState.New, JobState.Active),
-            NarrativeEvent(500, "invokeOnCompletion registered on the PARENT job"),
-            NarrativeEvent(800, "Both children are working..."),
-            StateChangeEvent(1000, "#1 completing", "child-1", JobState.Active, JobState.Completing),
-            StateChangeEvent(1100, "#1 completed", "child-1", JobState.Completing, JobState.Completed),
-            NarrativeEvent(1200, "Parent callback has NOT fired yet — child #2 is still running"),
-            NarrativeEvent(1500, "#2 still working..."),
-            StateChangeEvent(1800, "#2 completing", "child-2", JobState.Active, JobState.Completing),
-            StateChangeEvent(1900, "#2 completed", "child-2", JobState.Completing, JobState.Completed),
-            NarrativeEvent(2000, "All children completed — parent enters Completing"),
-            StateChangeEvent(2100, "Parent scope completing", "root", JobState.Active, JobState.Completing),
-            StateChangeEvent(2200, "Parent scope completed", "root", JobState.Completing, JobState.Completed),
-            NarrativeEvent(2300, "NOW parent's invokeOnCompletion fires with cause = null"),
-            NarrativeEvent(2500, "Parent callback waits for ALL children — useful for tracking overall job completion")
+            narrative(0, "invokeOnCompletion on PARENT Job — fires only after ALL children complete"),
+            starts(100, "Scope becomes Active", "root"),
+            starts(300, "launch #1 starts", "child-1"),
+            starts(400, "launch #2 starts", "child-2"),
+            narrative(500, "invokeOnCompletion registered on the PARENT job"),
+            narrative(800, "Both children are working..."),
+            completing(1000, "#1 completing", "child-1"),
+            completed(1100, "#1 completed", "child-1"),
+            narrative(1200, "Parent callback has NOT fired yet — child #2 is still running"),
+            narrative(1500, "#2 still working..."),
+            completing(1800, "#2 completing", "child-2"),
+            completed(1900, "#2 completed", "child-2"),
+            narrative(2000, "All children completed — parent enters Completing"),
+            completing(2100, "Parent scope completing", "root"),
+            completed(2200, "Parent scope completed", "root"),
+            narrative(2300, "NOW parent's invokeOnCompletion fires with cause = null"),
+            narrative(2500, "Parent callback waits for ALL children — useful for tracking overall job completion")
         )
 
         return timeline(
